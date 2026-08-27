@@ -1,10 +1,53 @@
-# grease
+# Grease and ish
 
-a language to smooth the friction between things that come in contact with another ("shell")
+Grease is a language for smoothing the friction between things that come in
+contact with one another: a shell. It began with Oils and YSH, thickened with
+its own bubbles.
 
-based on oil, thickened up with my own bubbles
+This branch begins **ish**, the shell to be written in Idriç.
 
-## Source
+## ish
+
+`ish` inherits experience, examples, and useful ideas from Grease, YSH, and
+Oils. It does not inherit a contract to remain compatible with any of them.
+Their syntax, runtime, object model, standard library, command behavior, and
+implementation are references rather than constraints.
+
+The direction is:
+
+```text
+Oils / YSH -> Grease -> ish
+                         |
+                         +-- written in Idriç
+```
+
+The arrow means descent, not compatibility.
+
+Idriç is also allowed to change in response to the shell. Its prelude and
+primitives are not required to reproduce Idris. Idris supplied a useful
+starting shape—a language with dependent types—but is not the specification.
+If `ish`, IB, Android, mathematical programs, or direct machine targets expose
+a better primitive or representation, Idriç may grow around that pressure.
+
+Two language-shape requirements are already comparatively firm:
+
+- mathematical and typographical notation should be designed for direct use,
+  not treated as aliases pasted over an otherwise fixed language;
+- vector-indexed function names, function families, and left-hand sides are
+  first-class design material.
+
+`ish` should initially take on the work Grease already performs well for IB:
+process execution, pipes, HTTP and utility orchestration, files, temporary
+paths, build commands, and other operating-system boundaries. Browser policy
+does not belong in the shell merely because the shell performs an operation.
+IB remains the application and one of the principal programs that shapes both
+`ish` and Idriç.
+
+There is no requirement to port all of Grease before `ish` becomes useful.
+Small real programs should pull the required shell forms, primitives, and
+runtime facilities into existence.
+
+## Grease source
 
 The Grease implementation is pinned under `source/` as a git submodule. It points at the `grease/main` line of `isomorphisms/oils`, currently commit `e9a54ad727d89cd593d0bfe56136046808ea81d2`.
 

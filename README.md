@@ -4,7 +4,7 @@ Grease is a language for smoothing the friction between things that come in
 contact with one another: a shell. It began with Oils and YSH, thickened with
 its own bubbles.
 
-This branch begins **ish**, the shell to be written in Idriç.
+This branch begins **ish**, the shell to be written in Odriç.
 
 ## ish
 
@@ -17,17 +17,23 @@ The direction is:
 
 ```text
 Oils / YSH -> Grease -> ish
-                         |
-                         +-- written in Idriç
+                         ↕
+                       Odriç
 ```
 
-The arrow means descent, not compatibility.
+The horizontal arrows mean descent, not compatibility. The vertical arrow
+means that `ish` and Odriç may change one another.
 
-Idriç is also allowed to change in response to the shell. Its prelude and
-primitives are not required to reproduce Idris. Idris supplied a useful
-starting shape—a language with dependent types—but is not the specification.
-If `ish`, IB, Android, mathematical programs, or direct machine targets expose
-a better primitive or representation, Idriç may grow around that pressure.
+Odriç is the deliberately unsettled branch of Idriç being born alongside the
+shell. Its ANF, prelude, primitives, representations, runtime seams, and native
+lowering are all open to pressure from `ish`. Idris supplied a useful starting
+shape—a language with dependent types—but is not the specification. If `ish`,
+IB, Android, mathematical programs, or direct machine targets expose a better
+primitive or representation, Odriç may grow around that pressure.
+
+[`odric.lock`](odric.lock) records the exact Odriç revision that defines the
+current build boundary. Moving that revision is an explicit part of changing
+`ish`, not an assumption that Odriç stands still.
 
 Two language-shape requirements are already comparatively firm:
 
@@ -46,6 +52,10 @@ IB remains the application and one of the principal programs that shapes both
 There is no requirement to port all of Grease before `ish` becomes useful.
 Small real programs should pull the required shell forms, primitives, and
 runtime facilities into existence.
+
+The first such program is specified in
+[`docs/000-one-command.md`](docs/000-one-command.md): one parsed simple command
+becomes one process with exact arguments and status.
 
 ## Grease source
 

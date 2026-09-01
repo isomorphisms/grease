@@ -15,3 +15,10 @@ git clone --recurse-submodules https://github.com/isomorphisms/grease.git
 ```
 
 Keeping the Oils-derived tree as a pinned submodule avoids copying the full upstream repository while giving Grease one stable, reproducible source location for CI and local builds.
+
+## Service glue
+
+Filesystem-oriented service runners live under `services/`.  The first one is
+the [inspectable SMS service](services/sms/README.md): deterministic Idriç
+request parsing, durable one-time reminders, explicit consent provenance,
+`CANCEL`/`STOP`, and a fake outbox.

@@ -2,7 +2,7 @@
 
 A language to smooth the friction between things that come in contact with one another ("shell"), based on Oils/YSH and thickened with Grease-specific changes.
 
-Grease is currently the working Oils/YSH-derived implementation and reference predecessor to `ish`. `ish` is a separate Odriç-written descendant; it is not a rename of this source tree and it does not make Grease depend on Odriç.
+Grease is currently the working Oils/YSH-derived implementation and reference predecessor to `ish`. `ish` is a separate descendant intended to be written in Odriç; it is not a rename of this source tree and it does not make Grease depend on Odriç.
 
 See [`docs/CURRENT-GREASE.md`](docs/CURRENT-GREASE.md) for the reconciled language state, branch archaeology, superseded experiments, and executable receipts.
 

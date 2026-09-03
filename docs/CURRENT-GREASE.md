@@ -78,7 +78,7 @@ The ten label-only idea branches are not latent commits waiting to be merged. No
 
 ## Top-level Grease archaeology
 
-Before this convergence pass, `isomorphisms/grease:main` was still pinned to Oils commit `e9a54ad`, even though `oils:grease/main` had advanced to `8052868`. This branch corrects that reproducibility mismatch.
+Before this convergence pass, `isomorphisms/grease:main` was still pinned to Oils commit `e9a54ad`, even though `oils:grease/main` had advanced to `8052868`. The convergence branch corrects that reproducibility mismatch.
 
 Other top-level branches are deliberately not folded into current Grease:
 
@@ -99,6 +99,12 @@ This gives a clean responsibility split:
 - Odriç: the native language/compiler line co-designed with `ish`.
 
 ## Executable receipts
+
+### PASS — canonical pinned current Grease source
+
+`isomorphisms/grease` PR #3 runs `.github/workflows/grease-receipt.yml` from the top-level repository. It checks out the pinned `source/` submodule at `8052868` and runs the inherited substantive Oils command `soil/github-actions.sh run-job cpp-spec podman` without the unrelated publishing step. Run `33708820465` completed successfully on convergence head `3e602d77380e3a6efa5ab43958695109f77723b2`.
+
+This is the canonical current receipt for the reconciled source pin. It does not replace Oils/YSH as the wider behavioral oracle; it makes that oracle reproducible from the Grease repository itself.
 
 ### PASS — readable Grease boolean syntax
 
@@ -122,9 +128,9 @@ SKIP: native Ithon execution was unavailable because no built `ithon` executable
 
 No current executable receipt is claimed. The recovered environment lacked `idris2`, and the ICKY bridge was never integrated into `oils:grease/main`.
 
-### FAIL — publishing infrastructure, not Grease semantics
+### FAIL — historical publishing infrastructure, not Grease semantics
 
-The readable-syntax Actions run is globally red because `publish-html` failed after substantive jobs such as `cpp-spec` had passed. Do not treat that publisher failure as a language-test failure.
+The older readable-syntax Actions run is globally red because `publish-html` failed after substantive jobs such as `cpp-spec` had passed. The top-level canonical receipt deliberately runs the same substantive `cpp-spec` job without that publishing step and is green. Do not treat the old publisher failure as a language-test failure.
 
 ## Remaining questions
 
@@ -135,4 +141,4 @@ The readable-syntax Actions run is globally red because `publish-html` failed af
 
 ## Next material implementation step
 
-Establish a small exact-current Grease CI receipt from the top-level pinned `source/` tree that runs the focused readable-operator spec without coupling success to Oils' publishing machinery. That would turn the existing historical PASS into a reproducible receipt attached directly to the canonical Grease repository and pin, while keeping inherited Oils/YSH tests available as the wider oracle.
+Give the pinned current source a small named Grease entrypoint and direct smoke test that invokes that entrypoint on Grease-readable source. The new CI receipt proves the pinned implementation and inherited spec suite run together; the remaining execution seam is that Grease is still represented primarily as an Oils source line rather than as a clearly named executable built from that exact pin. Do this without inventing new language semantics: build or wrap the existing current implementation, run a small `⟦ ... ⟧` / `∧` / `∨` / `¬` program through it, and retain Oils/YSH behavior as the oracle.

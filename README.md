@@ -1,12 +1,14 @@
 # grease
 
-a language to smooth the friction between things that come in contact with another ("shell")
+A language to smooth the friction between things that come in contact with one another ("shell"), based on Oils/YSH and thickened with Grease-specific changes.
 
-based on oil, thickened up with my own bubbles
+Grease is currently the working Oils/YSH-derived implementation and reference predecessor to `ish`. `ish` is a separate descendant intended to be written in Odriç; it is not a rename of this source tree and it does not make Grease depend on Odriç.
+
+See [`docs/CURRENT-GREASE.md`](docs/CURRENT-GREASE.md) for the reconciled language state, branch archaeology, superseded experiments, and executable receipts.
 
 ## Source
 
-The Grease implementation is pinned under `source/` as a git submodule. It points at the `grease/main` line of `isomorphisms/oils`, currently commit `e9a54ad727d89cd593d0bfe56136046808ea81d2`.
+The Grease implementation is pinned under `source/` as a git submodule. It points at the `grease/main` line of `isomorphisms/oils`, currently commit `8052868773077602266d80bf39aad6998e2da749`.
 
 Clone with submodules to obtain the complete source tree:
 

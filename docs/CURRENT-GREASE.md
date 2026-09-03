@@ -102,7 +102,7 @@ This gives a clean responsibility split:
 
 ### PASS — canonical pinned current Grease source
 
-`isomorphisms/grease` PR #3 runs `.github/workflows/grease-receipt.yml` from the top-level repository. It checks out the pinned `source/` submodule at `8052868` and runs the inherited substantive Oils command `soil/github-actions.sh run-job cpp-spec podman` without the unrelated publishing step. Run `33708820465` completed successfully on convergence head `3e602d77380e3a6efa5ab43958695109f77723b2`.
+`isomorphisms/grease` PR #3 runs `.github/workflows/grease-receipt.yml` from the top-level repository. It checks out the pinned `source/` submodule at `8052868` and runs the inherited substantive Oils command `soil/github-actions.sh run-job cpp-spec podman` without the unrelated publishing step. Run `33708983086` completed successfully on convergence head `4de2e036788e8c9a6a959ae72ccc1786bdb5f1d5`.
 
 This is the canonical current receipt for the reconciled source pin. It does not replace Oils/YSH as the wider behavioral oracle; it makes that oracle reproducible from the Grease repository itself.
 

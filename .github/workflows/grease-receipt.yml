@@ -1,0 +1,24 @@
+name: grease-receipt
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  cpp-spec:
+    runs-on: ubuntu-22.04
+    env:
+      REPO_ROOT: ${{ github.workspace }}/source
+    steps:
+      - name: Check out Grease and pinned Oils source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Fix kernel mmap rnd bits
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Run inherited Oils cpp-spec oracle
+        working-directory: source
+        run: soil/github-actions.sh run-job cpp-spec podman

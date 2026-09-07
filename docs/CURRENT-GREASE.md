@@ -100,11 +100,13 @@ This gives a clean responsibility split:
 
 ## Executable receipts
 
-### PASS — canonical pinned current Grease source
+### Canonical pinned current Grease source
 
-`isomorphisms/grease` PR #3 runs `.github/workflows/grease-receipt.yml` from the top-level repository. It checks out the pinned `source/` submodule at `8052868` and runs the inherited substantive Oils command `soil/github-actions.sh run-job cpp-spec podman` without the unrelated publishing step. Run `33708983086` completed successfully on convergence head `4de2e036788e8c9a6a959ae72ccc1786bdb5f1d5`.
+The first top-level receipt was accidentally green. PR #3 run `33708983086` and the corresponding `main` run `33763895003` both checked out `source/` at `8052868`, but the inherited container mounted the submodule worktree without the parent repository's `.git/modules/source` directory. `soil/worker.sh` stopped at `fatal: not a git repository` before running any `cpp-spec` task. The surrounding Oils wrapper did not propagate that early failure, so neither run is executable evidence.
 
-This is the canonical current receipt for the reconciled source pin. It does not replace Oils/YSH as the wider behavioral oracle; it makes that oracle reproducible from the Grease repository itself.
+The repaired `.github/workflows/grease-receipt.yml` first performs a normal recursive-submodule checkout and verifies that `source/` matches the top-level gitlink. It then checks out that exact revision as a standalone worktree, which the inherited container harness can mount without losing git metadata. After running `soil/github-actions.sh run-job cpp-spec podman`, the workflow checks both the commit recorded inside the container and the task status recorded by the Oils harness. A missing task record, a different source revision, or any failing `cpp-spec` task therefore makes the receipt fail.
+
+This is the canonical receipt contract for the reconciled source pin. It does not replace Oils/YSH as the wider behavioral oracle; it makes that oracle reproducible from the Grease repository itself.
 
 ### PASS — readable Grease boolean syntax
 
@@ -130,15 +132,19 @@ No current executable receipt is claimed. The recovered environment lacked `idri
 
 ### FAIL — historical publishing infrastructure, not Grease semantics
 
-The older readable-syntax Actions run is globally red because `publish-html` failed after substantive jobs such as `cpp-spec` had passed. The top-level canonical receipt deliberately runs the same substantive `cpp-spec` job without that publishing step and is green. Do not treat the old publisher failure as a language-test failure.
+The older readable-syntax Actions run is globally red because `publish-html` failed after substantive jobs such as `cpp-spec` had passed. The repaired top-level receipt deliberately omits that unrelated publishing step and verifies the recorded `cpp-spec` task status directly. Do not treat the old publisher failure as a language-test failure.
 
-## Remaining questions
+## Non-blocking design questions
+
+These are possible later language decisions, not evidence of unfinished Grease work and not prerequisites for leaving the present implementation stationary.
 
 1. Should any of `←`, `→`, `×`, `÷`, `λ`, or `ƒ` be implemented in Oils-derived Grease now, or should those experiments survive only as design input to `ish` / Odriç?
 2. If anonymous-function notation remains relevant to Grease, is the spelling `λ`, `ƒ`, both, or neither?
 3. Are any of the ten unimplemented performance/runtime idea branches still wanted strongly enough to become real issues? Conversation history does not currently distinguish them from archived experiments.
 4. How much new behavior should Grease receive after the split, beyond maintaining a useful executable/reference shell while `ish` catches up? The evidence establishes the roles but not a feature-freeze policy.
 
-## Next material implementation step
+## Resting-state policy
 
-Give the pinned current source a small named Grease entrypoint and direct smoke test that invokes that entrypoint on Grease-readable source. The new CI receipt proves the pinned implementation and inherited spec suite run together; the remaining execution seam is that Grease is still represented primarily as an Oils source line rather than as a clearly named executable built from that exact pin. Do this without inventing new language semantics: build or wrap the existing current implementation, run a small `⟦ ... ⟧` / `∧` / `∨` / `¬` program through it, and retain Oils/YSH behavior as the oracle.
+Grease does not need a specially branded executable or another language/runtime pass merely to make the repository look more complete. The inherited Oils/YSH build and invocation paths are the implementation, and the exact pinned source plus the top-level receipt are the reproducible handoff.
+
+Reopen Grease development for a concrete correctness or reproducibility failure, a security problem that affects the pinned implementation, or a deliberate new Grease language decision. Upstream Oils development, the existence of old idea branches, and possible improvements by themselves do not require Grease to move.

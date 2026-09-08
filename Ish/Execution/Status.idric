@@ -1,0 +1,16 @@
+module Ish.Execution.Status
+
+import Ish.Number
+
+%default total
+
+-- Invalid usage or source prevents ish from attempting an incantation.
+public export
+source_failure_status : Number
+source_failure_status = 2
+
+-- 126 is the conventional process status for a program that could not be
+-- entered. ish uses it for every failed current-process replacement.
+public export
+process_replacement_failure_status : Number
+process_replacement_failure_status = 126

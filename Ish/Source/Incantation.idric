@@ -1,0 +1,80 @@
+module Ish.Source.Incantation
+
+import Data.String
+
+import Ish.Number
+import Ish.Source.Meaning
+import Ish.Text
+
+%default total
+
+record Source_token where
+  constructor Token_at
+  token_text : Text
+  token_span : Source_span
+
+data Scan_state
+  = Between_words
+  | Inside_word Number (List Char)
+
+finish_word : Number → Number → List Char → Source_token
+finish_word start end backward =
+  let text = pack $ reverse backward
+      span = Characters_from_until start end in
+    Token_at text span
+
+scan_words :
+  Number → Scan_state → List Source_token → List Char → List Source_token
+scan_words offset Between_words found [] = reverse found
+scan_words offset (Inside_word start backward) found [] =
+  reverse $ finish_word start offset backward :: found
+scan_words offset Between_words found (character :: rest) =
+  let next_offset = S offset in
+    if isSpace character
+      then scan_words next_offset Between_words found rest
+      else scan_words next_offset (Inside_word offset [character]) found rest
+scan_words offset (Inside_word start backward) found (character :: rest) =
+  let next_offset = S offset in
+    if isSpace character
+      then scan_words
+             next_offset
+             Between_words
+             (finish_word start offset backward :: found)
+             rest
+      else scan_words
+             next_offset
+             (Inside_word start $ character :: backward)
+             found
+             rest
+
+first_nul : Number → List Char → Maybe Number
+first_nul offset [] = Nothing
+first_nul offset ('\NUL' :: rest) = Just offset
+first_nul offset (_ :: rest) = first_nul (S offset) rest
+
+name_from_token : Source_token → Incantation_name
+name_from_token (Token_at text span) = Incantation_name_at text span
+
+input_from_token : Source_token → Input
+input_from_token (Token_at text span) = Input_at text span
+
+public export
+parse_source : Text → Source_analysis
+parse_source source =
+  let characters = unpack source
+      source_length = length characters in
+    case first_nul 0 characters of
+      Just offset =>
+        Rejected_source $
+          Nul_in_source_at $ Characters_from_until offset $ S offset
+      Nothing =>
+        case scan_words 0 Between_words [] characters of
+          [] =>
+            Awaiting_more_source $
+              Awaiting_incantation_name_at $
+                Characters_from_until source_length source_length
+          first :: rest =>
+            let span = Characters_from_until 0 source_length
+                name = name_from_token first
+                inputs = map input_from_token rest in
+              Parsed_incantation $ Named_incantation_at span name inputs

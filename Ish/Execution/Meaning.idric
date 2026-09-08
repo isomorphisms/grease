@@ -1,0 +1,39 @@
+module Ish.Execution.Meaning
+
+import Ish.Number
+import Ish.Source.Meaning
+import Ish.Text
+
+%default total
+
+-- Text already interpreted as the exact path supplied to execve. This value
+-- never means a PATH-searchable incantation name.
+public export
+record Executable_path where
+  constructor Exact_executable_path
+  path_text : Text
+  path_span : Source_span
+
+-- A complete description of this milestone's execution effect: replace ish's
+-- current process image with the named program and inputs. Environment,
+-- directory, and open descriptors are inherited, so they are not fields here.
+public export
+record Current_process_replacement where
+  constructor Replace_current_process_with
+  replacement_executable : Executable_path
+  replacement_inputs : List Text
+
+-- An errno returned by the operating system is a nonnegative number. Its C
+-- foreign representation is converted before this value is constructed.
+public export
+record Operating_system_error where
+  constructor Errno_reported
+  error_number : Number
+
+-- Success has no corresponding value because execve replaces the process.
+-- Returning from that operation therefore proves the replacement failed.
+public export
+record Process_replacement_failure where
+  constructor Could_not_replace_process
+  attempted_replacement : Current_process_replacement
+  operating_system_error : Operating_system_error

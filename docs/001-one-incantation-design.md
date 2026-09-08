@@ -48,11 +48,10 @@ type-guided interactive editor.
 |---|---|---|---|
 | Scan | source text | located source words | word boundaries become explicit |
 | Parse | located words | incantation name and inputs | positional roles become explicit |
-| Resolve | incantation name | executable path | the name is interpreted as a path; no `PATH` search occurs |
-| Construct | located inputs | input text list | source spans are dropped once they no longer guide execution |
+| Prepare replacement | incantation name | current-process replacement | the name becomes an exact executable path, input spans are dropped, and no `PATH` search occurs |
 | Foreign call | path and input list | `execve` path and `argv` | text is UTF-8 encoded; the final null pointers are constructed |
 | Success | current process | invoked program | process image is replaced; environment, directory, and descriptors are inherited |
-| Failure | operating-system errno | launch failure | path, source span, operation, and error text remain available for diagnosis |
+| Failure | operating-system errno | process-replacement failure | path, source span, operation, and error text remain available for diagnosis |
 
 The private Idriç/C call uses length-framed bytes because the foreign interface
 cannot pass `List Text` directly. That encoding is neither source syntax nor a
@@ -67,17 +66,28 @@ packaging is therefore absent from the invoked program's environment.
 ## Type guidance without premature rejection
 
 The first parser distinguishes source text, spans, an incantation name, inputs,
-an incomplete incantation, an executable path, an external invocation, and a
-launch failure. These distinctions either preserve information or restrict a
-real operation. Plain text, integers, booleans, and lists remain plain where
-they are honest representations.
+an incomplete incantation, an executable path, a description of replacing the
+current process, and a replacement failure. These distinctions either preserve
+information or restrict a real operation. Plain text, numbers, booleans, and
+lists remain plain where they are honest representations.
+
+The Idriç source uses `Number` for nonnegative counts and locations. Its one
+signed foreign-machine representation is named `Positive_or_negative_number`
+instead of leaking `Int` into the semantic model. Source octets are named
+`Source_byte`; `Bits8` is only that type's compiler representation. UTF-8 byte
+ranges are named, and the exceptional bounds are documented where they prevent
+overlong encodings, surrogate values, or values beyond U+10FFFF.
+
+The readable program entry remains in top-level `Ish.idric`. Supporting
+implementations are grouped beneath `Ish/`; build and foreign-runtime machinery
+remain beneath `_` and reach the top-level source through `_/src`.
 
 There is no catalogue of known incantations and no signature checking yet. Any
-nonempty name can become an external invocation, so ordinary Unix programs
-remain interoperable. Later descriptions can add semantic completion and
-guidance without changing that fallback. Types should help the user discover
-what can come next; they need not turn every unknown or incomplete interaction
-into a hard error.
+nonempty name can prepare a current-process replacement, so ordinary Unix
+programs remain interoperable. Later descriptions can add semantic completion
+and guidance without changing that fallback. Types should help the user
+discover what can come next; they need not turn every unknown or incomplete
+interaction into a hard error.
 
 ## Deliberately absent
 

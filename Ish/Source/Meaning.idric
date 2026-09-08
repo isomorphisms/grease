@@ -1,0 +1,64 @@
+module Ish.Source.Meaning
+
+import Ish.Number
+import Ish.Text
+
+%default total
+
+-- A half-open range of characters in already-decoded source text.
+public export
+record Source_span where
+  constructor Characters_from_until
+  starts_at : Number
+  ends_before : Number
+
+public export
+Show Source_span where
+  show (Characters_from_until start end) =
+    "[" ++ show start ++ "," ++ show end ++ ")"
+
+-- The first source word, retained with its location for interaction and
+-- diagnostics. It has not yet been interpreted as a filesystem path.
+public export
+record Incantation_name where
+  constructor Incantation_name_at
+  name_text : Text
+  name_span : Source_span
+
+-- One nonempty source word after the incantation name. Its location remains
+-- available until the process boundary deliberately drops it.
+public export
+record Input where
+  constructor Input_at
+  input_text : Text
+  input_span : Source_span
+
+-- A syntactically complete single incantation and the source it came from.
+public export
+record Incantation where
+  constructor Named_incantation_at
+  incantation_span : Source_span
+  incantation_name : Incantation_name
+  incantation_inputs : List Input
+
+-- Editable source that is valid so far but still needs an incantation name.
+public export
+record Incomplete_incantation where
+  constructor Awaiting_incantation_name_at
+  insertion_span : Source_span
+
+-- The decoded source contains text Unix cannot carry through execve.
+public export
+data Source_issue = Nul_in_source_at Source_span
+
+-- Parsing distinguishes rejection, useful incompleteness, and a complete
+-- incantation so an interactive reader does not turn all three into errors.
+public export
+data Source_analysis
+  = Rejected_source Source_issue
+  | Awaiting_more_source Incomplete_incantation
+  | Parsed_incantation Incantation
+
+-- A byte location is kept separate from a decoded character Source_span.
+public export
+data Source_decoding_issue = Invalid_utf8_near_byte Number

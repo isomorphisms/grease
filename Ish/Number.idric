@@ -1,0 +1,18 @@
+module Ish.Number
+
+%default total
+
+-- A Number counts or locates something and therefore cannot be negative.
+public export
+Number : Type
+Number = Nat
+
+-- Keep the inherited signed machine representation behind an honest name.
+-- Shell values should use a narrower semantic type whenever one exists.
+public export
+Positive_or_negative_number : Type
+Positive_or_negative_number = Int
+
+public export
+positive_or_negative_representation : Number → Positive_or_negative_number
+positive_or_negative_representation number = cast number

@@ -1,6 +1,7 @@
 IDRIC ?= idris2
 CHEZ ?= chezscheme
 CC ?= cc
+IDRIC_SOURCES := $(shell find src/Ish.idric src/Ish -type f -name '*.idric')
 
 .PHONY: all check test clean
 
@@ -9,7 +10,7 @@ all: build/exec/ish
 build/exec/ish: runtime/launch.c build/exec/ish-backend
 	$(CC) -std=c11 -Wall -Wextra -Werror -o $@ $<
 
-build/exec/ish-backend: src/Ish.idric ish.ipkg libish_runtime.so
+build/exec/ish-backend: $(IDRIC_SOURCES) ish.ipkg libish_runtime.so
 	CHEZ=$(CHEZ) $(IDRIC) --build ish.ipkg
 
 libish_runtime.so: runtime/execute.c

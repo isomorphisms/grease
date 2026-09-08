@@ -1,0 +1,2 @@
+*.idric linguist-language=Idris
+_/build/** linguist-generated

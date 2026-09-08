@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 static const char *launch_environment_name = "__ISH_LAUNCH_ENVIRONMENT";
+static const int compiled_program_could_not_start_status = 126;
 static const char *saved_environment_names[] = {
     "LD_LIBRARY_PATH",
     "DYLD_LIBRARY_PATH",
@@ -106,7 +107,7 @@ static char *prepend_path(const char *directory, const char *previous) {
 static int fail(const char *operation) {
     int error = errno;
     fprintf(stderr, "ish launcher: %s: %s\n", operation, strerror(error));
-    return 126;
+    return compiled_program_could_not_start_status;
 }
 
 int main(int count, char **values) {

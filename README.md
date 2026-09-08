@@ -16,8 +16,8 @@ implementation are references rather than constraints.
 The Oils-derived Grease tree is evidence and reference material, not an
 implementation base that `ish` must preserve. `ish` may put useful pressure on
 Idriç and on future language work, but it does not depend on Adriç, Odriç, or
-Oodriç. [`idric.lock`](idric.lock) records the exact current Idriç revision used
-for the executable slice.
+Oodriç. [`_/idric.lock`](_/idric.lock) records the exact current Idriç revision
+used for the executable slice.
 
 `ish` should initially take on the work Grease already performs well for IB:
 process execution, pipes, HTTP and utility orchestration, files, temporary
@@ -38,13 +38,20 @@ parsed incantation becomes one process with exact textual inputs and status.
 
 ## Build the first slice
 
-Build current Idriç at the revision in `idric.lock`, then provide its compiler
-to `make`:
+`Ish.idric` stays at the repository top level so the program can be read before
+its machinery. Its implementations are factored under `Ish/`. The compiler
+source link, package description, runtime boundary, tests, and generated build
+all live under `_`.
+
+Build current Idriç at the revision in `_/idric.lock`, then provide its
+compiler to the build under `_`:
 
 ```sh
-make IDRIC=/path/to/Idric/idris2 \
+IDRIS2_PREFIX=/path/to/Idric/_/bootstrap-build \
+make -C _ IDRIC=/path/to/Idric/idris2 \
   CHEZ=/path/to/Idric/_/.tools/bin/scheme
-make test IDRIC=/path/to/Idric/idris2 \
+IDRIS2_PREFIX=/path/to/Idric/_/bootstrap-build \
+make -C _ test IDRIC=/path/to/Idric/idris2 \
   CHEZ=/path/to/Idric/_/.tools/bin/scheme
 ```
 

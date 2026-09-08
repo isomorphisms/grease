@@ -100,7 +100,7 @@ set -e
 
 test "$missing_status" -eq 126
 test ! -s "$actual"
-grep -F "could not cast incantation from \"$missing_source\": execve failed for \"/definitely/not/present/ish-probe\" at [0,33)" \
+grep -F "could not cast incantation from \"$missing_source\": could not replace ish with executable \"/definitely/not/present/ish-probe\" at [0,33)" \
   "$diagnostic" >/dev/null
 
 path_source=$temporary/no-path-search.ish
@@ -114,7 +114,7 @@ set -e
 
 test "$path_status" -eq 126
 test ! -s "$actual"
-grep -F "could not cast incantation from \"$path_source\": execve failed for \"probe\" at [0,5)" \
+grep -F "could not cast incantation from \"$path_source\": could not replace ish with executable \"probe\" at [0,5)" \
   "$diagnostic" >/dev/null
 
 invalid_source=$temporary/nul.ish

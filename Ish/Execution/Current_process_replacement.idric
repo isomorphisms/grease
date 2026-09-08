@@ -62,5 +62,5 @@ replacement_failure_text
       _)
     (Operating_system_error_reported error_text)) =
     "could not cast incantation from " ++ show source_path ++
-    ": execve failed for " ++ show path ++ " at " ++ show span ++
-    ": " ++ error_text
+    ": could not replace ish with executable " ++ show path ++
+    " at " ++ show span ++ ": " ++ error_text

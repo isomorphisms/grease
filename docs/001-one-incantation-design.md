@@ -1,23 +1,22 @@
 # ish design receipt 1: one incantation
 
-This note records the decisions embodied by the first executable slice. It is
-a receipt for a deliberately small experiment, not a commitment to a complete
-shell language.
+> **Design and acceptance receipt.** This note records the decisions embodied
+> by the maintained first executable slice. It is not the general shell
+> specification; historical exploration lives under `docs/research/`.
 
 ## Vocabulary and representation
 
 An **incantation** is what Unix literature ordinarily calls a command. An
-**action** will be the reusable language-level concept ordinarily called a
-function, though milestone 0 has none. An incantation's positional textual
-values are its **inputs**. Behavior modifiers may later be called **options**.
+**action** is reserved for a reusable language-level operation; milestone 0 has
+none. An incantation's positional textual values are its **inputs**.
 
 Normal source, names, inputs, paths, environment values, and data are text.
 Idriç calls decoded character text `Text`; its inherited Chez boundary encodes
-that text as UTF-8. Source bytes are validated before decoding so malformed UTF-8
-cannot silently become replacement characters. NUL is rejected because a Unix
-process input cannot contain it.
-Non-text Unix filenames are outside this chosen model; that is a deliberate
-limit, not a claim that every Unix filename is text.
+that text as UTF-8. Source bytes are validated before decoding so malformed
+UTF-8 cannot silently become replacement characters. NUL is rejected because a
+Unix process input cannot contain it. Non-text Unix filenames are outside this
+chosen model; that is a deliberate limit, not a claim that every Unix filename
+is text.
 
 `argv` remains useful only when describing the foreign Unix ABI. The Idriç
 program works with an input list.
@@ -31,18 +30,17 @@ escaping, interpolation, splitting, globbing, substitution, comment syntax,
 or second incantation.
 
 This spelling is intentionally provisional. It exists so that the semantic
-and operating-system boundaries can run end to end; it does not settle the
-eventual word language.
+and operating-system boundaries can run end to end; it does not settle a
+future word language.
 
-Spans are half-open character offsets into decoded source text. Byte offsets at
-the UTF-8 decoding boundary remain byte offsets rather than masquerading as
-source spans. The scanner retains a
+Spans are half-open `Cardinality` character offsets into decoded source text.
+Byte offsets at the UTF-8 decoding boundary are also Cardinalities, but remain
+byte offsets rather than masquerading as source spans. The scanner retains a
 span for the name and each input. The resulting incantation retains its source
 file identity and decoded source text rather than receiving loose source
-numbers or text later. Empty or whitespace-only source is represented
-as an incomplete incantation awaiting a name, rather than discarded as a
-generic parse error. That distinction is the first small hook for a future
-type-guided interactive editor.
+counts or text later. Empty or whitespace-only source is represented as an
+incomplete incantation awaiting a name rather than discarded as a generic parse
+error.
 
 ## Semantic path
 
@@ -53,7 +51,7 @@ type-guided interactive editor.
 | Prepare replacement | incantation | current-process replacement | the name becomes an exact executable path, input spans are dropped, source identity is retained for failure, and no `PATH` search occurs |
 | Foreign call | path and input list | `execve` path and `argv` | text is UTF-8 encoded; the final null pointers are constructed |
 | Success | current process | invoked program | process image is replaced; environment, directory, and descriptors are inherited |
-| Failure | operating-system errno | process-replacement failure | path, source span, operation, and error text remain available for diagnosis |
+| Failure | raw operating-system errno | process-replacement failure | the raw integer is consumed at the foreign boundary while path, source span, operation, and operating-system error text remain available for diagnosis |
 
 The private Idriç/C call uses length-framed bytes because the foreign interface
 cannot pass `List Text` directly. That encoding is neither source syntax nor a
@@ -67,40 +65,39 @@ packaging is therefore absent from the invoked program's environment.
 
 ## Type guidance without premature rejection
 
-The first parser distinguishes a source-file path, validated decoded source
-text, their combined source identity, spans, an incantation name, inputs, an
+The parser distinguishes a source-file path, validated decoded source text,
+their combined source identity, spans, an incantation name, inputs, an
 incomplete incantation, an executable path, a description of replacing the
 current process, and a replacement failure. These distinctions either preserve
-information or restrict a real operation. Plain text, numbers, booleans, and
-lists remain plain where they are honest representations.
+information or restrict a real operation. Plain values remain plain where they
+are honest representations.
 
-The Idriç source uses the language's `Number` and `Text` vocabulary directly;
-it no longer needs application-local modules that reveal inherited `Nat` and
-`String` representations. The signed integer used by Unix status and errno APIs
-appears only at those inherited boundaries. Source octets are named
-`Source_byte`; `Bits8` is only that type's compiler representation. UTF-8 byte
-ranges are named, and the exceptional bounds are documented where they prevent
-overlong encodings, surrogate values, or values beyond U+10FFFF.
+The maintained source uses canonical Idriç vocabulary directly. `Text` is
+ordinary decoded text. `Cardinality` is used for zero-capable source lengths,
+character offsets, byte offsets, and UTF-8 sequence widths. `Number` is reserved
+for genuinely positive whole-number meanings; this slice currently needs no
+such programmer-facing value. `±Number` is likewise not used merely to disguise
+raw ABI integers. Source octets are named `Source_byte` and remain raw bytes
+inside the decoder; `Bits8` is only that boundary type's compiler
+representation. UTF-8 byte ranges are named, and the exceptional bounds are
+documented where they prevent overlong encodings, surrogate values, or values
+beyond U+10FFFF.
 
 The readable program entry remains in top-level `Ish.idric`: receive source,
 understand an incantation, and cast it. Source receipt, understanding, casting,
 failure reporting, and foreign execution are grouped beneath `Ish/`; build and
 foreign-runtime machinery remain beneath `_` and reach the top-level source
-through `_/src`. Idriç makes `.idric` source total by default, so the program no
-longer begins with an inherited `%default total` directive. Its byte reader is
+through `_/src`. Idriç makes `.idric` source total by default, so the program
+does not begin with an inherited `%default total` directive. Its byte reader is
 structurally decreasing and does not require a `covering` escape.
 
-There is no catalogue of known incantations and no signature checking yet. Any
-nonempty name can prepare a current-process replacement, so ordinary Unix
-programs remain interoperable. Later descriptions can add semantic completion
-and guidance without changing that fallback. Types should help the user
-discover what can come next; they need not turn every unknown or incomplete
-interaction into a hard error.
+There is no catalogue of known incantations and no signature checking in this
+slice. Any nonempty name can prepare a current-process replacement, so ordinary
+Unix programs remain interoperable.
 
 ## Deliberately absent
 
-There is no `PATH`, process creation, waiting, pipeline, redirection, builtin,
-action, variable, environment editing, expansion, pattern, prompt, line editor,
-completion engine, job control, or compatibility mode. The first feature that
-needs one of those facilities should expose its own semantic boundary rather
-than widening this slice pre-emptively.
+There is no `PATH` search, process creation, waiting, pipeline, redirection,
+builtin, action, variable, environment editing, expansion, pattern, prompt,
+line editor, completion engine, job control, or compatibility mode. This
+receipt makes no design claim about those absent features.

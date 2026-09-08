@@ -27,14 +27,22 @@ export` only when transitive API re-export is deliberate.
 
 - Use `snake_case` for names under our control and descriptive names rather
   than inherited Haskell abbreviations.
-- Use Idriç `Number` and `Text` directly. Do not recreate modules that alias
-  them to inherited `Nat` or `String`; import `Data.Text` for text operations.
+- Use canonical Idriç vocabulary directly rather than recreating local aliases.
+  `Text` is decoded text. `Number` means a positive whole number beginning at
+  one. `Cardinality` is the zero-capable whole-number type for counts, lengths,
+  and offsets. `±Number` is for genuinely signed integer meanings.
+- Do not relabel an ABI integer as a semantic number merely to hide `Int`.
+  Consume raw signed representations at the Unix/foreign boundary and carry a
+  shell meaning upward.
 - An `Incantation` retains its source identity, decoded source text, complete
-  span, name, and list of inputs. Do not pass loose source numbers/text beside
+  span, name, and list of inputs. Do not pass loose source counts/text beside
   it or reconstruct and reparse source.
 - Keep source bytes, decoded source text, filesystem paths, incantation names,
   executable paths, one input, input lists, process replacements, failures, and
   exit representations distinct where their operations differ.
+- A raw source byte remains `Source_byte` at the decoder boundary. Do not call a
+  byte value `Number` or `Cardinality`; only byte counts and offsets are
+  Cardinalities.
 - Use `Bool` for predicates, not as a premature projection of source analysis,
   launch failure, process completion, or protocol state.
 - Prefer named records over heterogeneous tuples. Do not create an unrestricted
@@ -73,7 +81,7 @@ upstream compatibility material.
 
 Do not restyle the `source/` submodule as maintained ish. Preserve its pinned
 revision and provenance. Keep `.gitattributes` accurate for Idriç, generated,
-foreign, vendored, and submodule content.
+foreign-support, vendored, and submodule content.
 
 ## Acceptance
 

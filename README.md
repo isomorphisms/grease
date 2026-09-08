@@ -1,74 +1,90 @@
 # Grease and ish
 
-Grease is a language for smoothing the friction between things that come in
-contact with one another: a shell. It began with Oils and YSH, thickened with
-its own bubbles.
-
-This branch begins **ish**, a small shell written in the current Idriç.
+Grease is a shell-language project that began from Oils and YSH. The
+Oils-derived tree remains pinned under `source/` as reference material. The
+maintained `ish` implementation is fresh Idriç at the repository root and under
+`Ish/`; it is not a compatibility layer over that reference tree.
 
 ## ish
 
-`ish` inherits experience, examples, and useful ideas from Grease, YSH, and
-Oils. It does not inherit a contract to remain compatible with any of them.
-Their syntax, runtime, object model, standard library, command behavior, and
-implementation are references rather than constraints.
+`ish` currently implements one deliberately small executable slice: receive one
+source file, understand one source-identified incantation, and cast it by
+replacing the shell process with the exact executable path named in that
+incantation.
 
-The Oils-derived Grease tree is evidence and reference material, not an
-implementation base that `ish` must preserve. `ish` may put useful pressure on
-Idriç and on future language work, but it does not depend on Adriç, Odriç, or
-Oodriç. [`_/idric.lock`](_/idric.lock) records the exact current Idriç revision
-used for the executable slice.
+The top-level program is intentionally the shortest useful description of that
+behavior:
 
-`ish` should initially take on the work Grease already performs well for IB:
-process execution, pipes, HTTP and utility orchestration, files, temporary
-paths, build commands, and other operating-system boundaries. Browser policy
-does not belong in the shell merely because the shell performs an operation.
-IB remains the application and one of the principal programs that shapes both
-`ish` and Idriç.
+```idris
+main : IO ()
+main = do
+  source ← receive_incantation_source
+  incantation ← understand_incantation source
+  cast_incantation incantation
+```
 
-There is no requirement to port all of Grease before `ish` becomes useful.
-Small real programs should pull the required shell forms, primitives, and
-runtime facilities into existence.
+The current source spelling is whitespace-separated words. The first word is
+the exact executable path and the remaining words are literal inputs. There is
+no `PATH` search, quoting, escaping, interpolation, expansion, globbing,
+redirection, pipeline, builtin, job control, or interactive editor in this
+slice.
 
-The first such program is specified in
-[`docs/000-one-command.md`](docs/000-one-command.md), with concrete decisions
-recorded in
-[`docs/001-one-incantation-design.md`](docs/001-one-incantation-design.md): one
-source-identified incantation becomes one process with exact textual inputs and
-status.
+Source identity and decoded text survive parsing. Source spans are decoded
+character offsets; UTF-8 validation uses separate byte offsets. Malformed UTF-8
+and NUL fail before execution. On successful `execve`, `ish` is replaced, so the
+requested program naturally inherits the environment, current directory,
+standard descriptors, and eventual process status.
 
-## Build the first slice
+## Repository shape
 
-`Ish.idric` stays at the repository top level so the program can be read before
-its machinery. Its implementations are factored under `Ish/`. The compiler
-source link, package description, runtime boundary, tests, and generated build
-all live under `_`.
+- `Ish.idric` — purpose-ordered maintained program.
+- `Ish/` — shell meanings and their implementations, organized by purpose.
+- `_` — package/build descriptions, the narrow C/Unix boundary, tests, probes,
+  compiler pin, generated output, and the source link used by the package.
+- `docs/000-one-command.md` — current milestone specification.
+- `docs/001-one-incantation-design.md` — design and acceptance receipt for this
+  slice.
+- `docs/research/` — historical research/background, explicitly non-authoritative
+  for current behavior.
+- `source/` — pinned Oils-derived Grease reference submodule, not maintained
+  `ish` source.
 
-Build current Idriç at the revision in `_/idric.lock`, then provide its
-compiler to the build under `_`:
+[`STYLE.md`](STYLE.md) records the repository-specific Idriç source rules.
+[`_/idric.lock`](_/idric.lock) records the exact Idriç revision against which
+this slice is accepted.
+
+## Build and acceptance
+
+Build Idriç at the exact revision in `_/idric.lock`, then run the clean
+acceptance target with that compiler:
 
 ```sh
 IDRIS2_PREFIX=/path/to/Idric/_/bootstrap-build \
-make -C _ IDRIC=/path/to/Idric/idris2 \
-  CHEZ=/path/to/Idric/_/.tools/bin/scheme
-IDRIS2_PREFIX=/path/to/Idric/_/bootstrap-build \
-make -C _ test IDRIC=/path/to/Idric/idris2 \
+make -C _ acceptance IDRIC=/path/to/Idric/idris2 \
   CHEZ=/path/to/Idric/_/.tools/bin/scheme
 ```
 
+The acceptance gate rebuilds from a clean generated state and proves the
+runtime source-to-process path, exact UTF-8/literal inputs, inherited bytes and
+environment, standard descriptors, process status, deterministic malformed
+source failures, exact-path execution without `PATH` lookup, source-aware
+missing-executable diagnostics, and absence of an accidental existing-shell
+invocation when `strace` is available.
+
 The implementation uses the Chez backend, a native launcher, and one small C
-`execve` primitive. The launcher bypasses the backend's generated shell script
-and restores its temporary loader environment before the requested program is
-entered. The implementation does not use RefC or invoke an existing shell.
+`execve` boundary. The launcher bypasses the backend's generated shell wrapper
+and restores its temporary loader environment before entering the requested
+program. The maintained shell semantics do not expose that framing or raw Unix
+representation.
 
-## Grease source
+## Grease reference source
 
-The Grease implementation is pinned under `source/` as a git submodule. It points at the `grease/main` line of `isomorphisms/oils`, currently commit `e9a54ad727d89cd593d0bfe56136046808ea81d2`.
-
-Clone with submodules to obtain the complete source tree:
+The Oils-derived Grease implementation is pinned under `source/` as a git
+submodule. Clone with submodules when that historical/reference tree is needed:
 
 ```sh
 git clone --recurse-submodules https://github.com/isomorphisms/grease.git
 ```
 
-Keeping the Oils-derived tree as a pinned submodule avoids copying the full upstream repository while giving Grease one stable, reproducible source location for CI and local builds.
+The exact submodule revision is repository state; the README does not duplicate
+it as a second mutable source of truth.

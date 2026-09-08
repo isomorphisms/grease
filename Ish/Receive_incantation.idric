@@ -37,9 +37,8 @@ receive_source_file path = do
   decoded_text ← getString source_buffer 0 source_size_representation
   pure $ Source_from_file path $ Decoded_source decoded_text
 
--- The current executable slice receives one source file. A later interactive
--- reader can implement the same operation without changing what an
--- Incantation_source means.
+-- This executable boundary receives exactly one source file and returns the
+-- source-identified meaning consumed by the understanding layer.
 export
 receive_incantation_source : IO Incantation_source
 receive_incantation_source = do

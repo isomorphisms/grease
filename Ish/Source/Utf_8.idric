@@ -111,30 +111,30 @@ first_invalid_utf8 offset (first :: rest) =
       then first_invalid_utf8 (S offset) rest
       else if is_between two_byte_leader_first two_byte_leader_last leader
         then case rest of
-          second :: later =>
+          second :: later ⇒
             if is_continuation second
               then first_invalid_utf8
                      (offset + two_byte_sequence_width)
                      later
               else Just $ Invalid_utf8_near_byte offset
-          [] => Just $ Invalid_utf8_near_byte offset
+          [] ⇒ Just $ Invalid_utf8_near_byte offset
         else if is_between three_byte_leader_first three_byte_leader_last leader
           then case rest of
-            second :: third :: later =>
+            second :: third :: later ⇒
               if valid_second_of_three leader second && is_continuation third
                 then first_invalid_utf8
                        (offset + three_byte_sequence_width)
                        later
                 else Just $ Invalid_utf8_near_byte offset
-            _ => Just $ Invalid_utf8_near_byte offset
+            _ ⇒ Just $ Invalid_utf8_near_byte offset
           else if is_between four_byte_leader_first four_byte_leader_last leader
             then case rest of
-              second :: third :: fourth :: later =>
+              second :: third :: fourth :: later ⇒
                 if valid_second_of_four leader second &&
                    is_continuation third && is_continuation fourth
                   then first_invalid_utf8
                          (offset + four_byte_sequence_width)
                          later
                   else Just $ Invalid_utf8_near_byte offset
-              _ => Just $ Invalid_utf8_near_byte offset
+              _ ⇒ Just $ Invalid_utf8_near_byte offset
             else Just $ Invalid_utf8_near_byte offset

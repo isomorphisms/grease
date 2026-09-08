@@ -56,11 +56,11 @@ this slice is accepted.
 ## Build and acceptance
 
 Build Idriç at the exact revision in `_/idric.lock`, then run the clean
-acceptance target with that compiler:
+acceptance target with the stage-2 compiler produced by that checkout:
 
 ```sh
 IDRIS2_PREFIX=/path/to/Idric/_/bootstrap-build \
-make -C _ acceptance IDRIC=/path/to/Idric/idris2 \
+make -C _ acceptance IDRIC=/path/to/Idric/_/build/exec/idris2 \
   CHEZ=/path/to/Idric/_/.tools/bin/scheme
 ```
 

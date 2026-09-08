@@ -1,2 +1,6 @@
 *.idric linguist-language=Idris
+source/** linguist-vendored
 _/build/** linguist-generated
+_/test/tmp/** linguist-generated
+_/runtime/*.c linguist-detectable=false
+_/test/*.c linguist-detectable=false

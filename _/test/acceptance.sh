@@ -15,6 +15,12 @@ if grep -E '^[[:space:]]*(%default|covering)|\bstop\b|Ish\.(Number|Text)' \
     exit 1
 fi
 
+if grep -R -E '^[[:space:]]*(%default[[:space:]]+total|covering)|Ish\.(Number|Text)' \
+  "$repo_root/../Ish" --include='*.idric' >/dev/null; then
+    printf '%s\n' 'maintained Idriç source contains a superseded compiler or vocabulary layer' >&2
+    exit 1
+fi
+
 grep -F 'source ← receive_incantation_source' "$top_level_source" >/dev/null
 grep -F 'incantation ← understand_incantation source' "$top_level_source" >/dev/null
 grep -F 'cast_incantation incantation' "$top_level_source" >/dev/null

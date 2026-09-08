@@ -21,6 +21,7 @@ static const char *restored_environment_names[] = {
 enum {
     decimal_radix = 10,
     encoded_presence_field_width = 2,
+    decoded_input_extra_entries = 1,
     process_input_extra_entries = 2,
     overwrite_environment_value = 1,
 };
@@ -86,7 +87,8 @@ static void release_environment(environment_value *values, size_t count) {
 /*
  * The native launcher temporarily adds paths needed by Chez. It stores the
  * caller's exact prior values in one reserved variable, including the prior
- * value of that variable itself. Restore all four before entering the child.
+ * value of that variable itself. Restore all four before entering the
+ * requested program.
  */
 static int restore_launch_environment(void) {
     const char *state = getenv(launch_environment_name);
@@ -166,13 +168,13 @@ static int decode_inputs(
         return error;
     }
 
-    if (count > (SIZE_MAX / sizeof(char *)) - process_input_extra_entries) {
+    if (count > (SIZE_MAX / sizeof(char *)) - decoded_input_extra_entries) {
         return EOVERFLOW;
     }
 
-    /* Reserve the program-name entry and the final null required by execve. */
+    /* Keep one null terminator in the private decoded-input array. */
     char **entries = calloc(
-        count + process_input_extra_entries,
+        count + decoded_input_extra_entries,
         sizeof(char *)
     );
     if (entries == NULL) {

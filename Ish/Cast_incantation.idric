@@ -1,7 +1,6 @@
 module Ish.Cast_incantation
 
 import Ish.Execution.Current_process_replacement
-import Ish.Execution.Meaning
 import Ish.Failure
 import Ish.Source.Meaning
 

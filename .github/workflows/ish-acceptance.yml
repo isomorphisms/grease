@@ -42,7 +42,7 @@ jobs:
       - name: Build from clean state and run executable acceptance
         env:
           IDRIS2_PREFIX: ${{ github.workspace }}/_idric/_/bootstrap-build
-          IDRIC: ${{ github.workspace }}/_idric/idris2
+          IDRIC: ${{ github.workspace }}/_idric/_/build/exec/idris2
           CHEZ: ${{ github.workspace }}/_idric/_/.tools/bin/scheme
         run: make -C _ acceptance
 

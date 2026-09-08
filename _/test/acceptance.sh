@@ -36,7 +36,7 @@ incoming=$temporary/incoming
 
 cp "$probe" "$literal_probe"
 printf '%s %s %s\n' "$literal_probe" 'café' '$HOME;*' >"$source_file"
-printf '%s' 'incoming data' >"$incoming"
+printf '\000\377Z' >"$incoming"
 
 trace_execve=false
 if command -v strace >/dev/null 2>&1 &&
@@ -77,8 +77,8 @@ environment[LD_LIBRARY_PATH]=9:caller-ld
 environment[DYLD_LIBRARY_PATH]=11:caller-dyld
 environment[IDRIS2_INC_SRC]=13:caller-source
 environment[__ISH_LAUNCH_ENVIRONMENT]=13:caller-marker
-incoming=13:incoming data
 EOF
+printf 'incoming=3:\000\377Z\n' >>"$expected"
 
 cmp "$expected" "$actual"
 test ! -s "$diagnostic"

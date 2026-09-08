@@ -2,14 +2,11 @@ module Ish
 
 import Ish.Cast_incantation
 import Ish.Receive_incantation
-import Ish.Source.Meaning
 import Ish.Understand_incantation
 
 -- A shell receives source describing an incantation, understands that
--- incantation and its inputs, then casts it so its action occurs. This first
--- executable slice casts one external program by replacing the shell process;
--- later shells may also arrange pipelines, builtins, and supervised processes
--- beneath the same intent.
+-- incantation and its inputs, then casts it so its action occurs. This
+-- executable slice casts one external program by replacing the shell process.
 main : IO ()
 main = do
   source ← receive_incantation_source

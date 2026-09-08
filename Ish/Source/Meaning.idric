@@ -4,12 +4,13 @@ module Ish.Source.Meaning
 -- source evidence they carry. `public export` is bootstrap visibility
 -- machinery here, below the shell's purpose-level source.
 
--- A half-open range of characters in already-decoded source text.
+-- A half-open range of characters in already-decoded source text. Zero is a
+-- valid boundary, so these locations are Cardinalities rather than Numbers.
 public export
 record Source_span where
   constructor Characters_from_until
-  starts_at : Number
-  ends_before : Number
+  starts_at : Cardinality
+  ends_before : Cardinality
 
 public export
 Show Source_span where
@@ -82,4 +83,4 @@ data Source_analysis
 
 -- A byte location is kept separate from a decoded character Source_span.
 public export
-data Source_decoding_issue = Invalid_utf8_near_byte Number
+data Source_decoding_issue = Invalid_utf8_near_byte Cardinality

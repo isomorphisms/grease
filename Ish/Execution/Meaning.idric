@@ -24,12 +24,13 @@ record Current_process_replacement where
   replacement_executable : Executable_path
   replacement_inputs : List Text
 
--- An errno returned by the operating system is a nonnegative number. Its C
--- foreign representation is converted before this value is constructed.
+-- The ABI reports errno as a raw signed integer. The numeric representation is
+-- consumed at the foreign boundary; the shell retains only the operating
+-- system's description of the failure.
 public export
 record Operating_system_error where
-  constructor Errno_reported
-  error_number : Number
+  constructor Operating_system_error_reported
+  error_text : Text
 
 -- Success has no corresponding value because execve replaces the process.
 -- Returning from that operation therefore proves the replacement failed.

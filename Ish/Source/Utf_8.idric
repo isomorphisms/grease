@@ -9,130 +9,124 @@ public export
 Source_byte : Type
 Source_byte = Bits8
 
-source_byte_number : Source_byte → Number
-source_byte_number byte = cast byte
-
 -- 00–7F are single-byte UTF-8 and coincide with ASCII.
-ascii_last : Number
+ascii_last : Source_byte
 ascii_last = 127
 
 -- 80–BF are UTF-8 continuation bytes: every one begins with the bit prefix 10.
-continuation_first : Number
+continuation_first : Source_byte
 continuation_first = 128
 
-continuation_last : Number
+continuation_last : Source_byte
 continuation_last = 191
 
 -- C2–DF begin two-byte encodings. C0 and C1 are excluded because they could
 -- only introduce overlong encodings of values already representable in ASCII.
-two_byte_leader_first : Number
+two_byte_leader_first : Source_byte
 two_byte_leader_first = 194
 
-two_byte_leader_last : Number
+two_byte_leader_last : Source_byte
 two_byte_leader_last = 223
 
 -- E0–EF begin three-byte encodings.
-three_byte_leader_first : Number
+three_byte_leader_first : Source_byte
 three_byte_leader_first = 224
 
-three_byte_leader_last : Number
+three_byte_leader_last : Source_byte
 three_byte_leader_last = 239
 
 -- E0 needs a higher second byte to reject an overlong three-byte encoding.
-shortest_three_byte_second : Number
+shortest_three_byte_second : Source_byte
 shortest_three_byte_second = 160
 
 -- ED needs a lower second byte to stop before UTF-16's surrogate range.
-surrogate_range_leader : Number
+surrogate_range_leader : Source_byte
 surrogate_range_leader = 237
 
-last_before_surrogate_range : Number
+last_before_surrogate_range : Source_byte
 last_before_surrogate_range = 159
 
 -- F0–F4 begin four-byte encodings. F5–FF cannot encode a Unicode scalar
 -- because they begin values beyond U+10FFFF.
-four_byte_leader_first : Number
+four_byte_leader_first : Source_byte
 four_byte_leader_first = 240
 
-four_byte_leader_last : Number
+four_byte_leader_last : Source_byte
 four_byte_leader_last = 244
 
-two_byte_sequence_width : Number
+two_byte_sequence_width : Cardinality
 two_byte_sequence_width = 2
 
-three_byte_sequence_width : Number
+three_byte_sequence_width : Cardinality
 three_byte_sequence_width = 3
 
-four_byte_sequence_width : Number
+four_byte_sequence_width : Cardinality
 four_byte_sequence_width = 4
 
 -- F0 needs a higher second byte to reject an overlong four-byte encoding.
-shortest_four_byte_second : Number
+shortest_four_byte_second : Source_byte
 shortest_four_byte_second = 144
 
 -- F4 needs a lower second byte to stop at Unicode scalar U+10FFFF.
-last_unicode_scalar_second : Number
+last_unicode_scalar_second : Source_byte
 last_unicode_scalar_second = 143
 
-is_between : Number → Number → Number → Bool
+is_between : Source_byte → Source_byte → Source_byte → Bool
 is_between first last value = value >= first && value <= last
 
 is_continuation : Source_byte → Bool
 is_continuation byte =
-  is_between continuation_first continuation_last $ source_byte_number byte
+  is_between continuation_first continuation_last byte
 
-valid_second_of_three : Number → Source_byte → Bool
+valid_second_of_three : Source_byte → Source_byte → Bool
 valid_second_of_three leader second =
-  let value = source_byte_number second in
-    if leader == three_byte_leader_first
-      then is_between shortest_three_byte_second continuation_last value
-      else if leader == surrogate_range_leader
-        then is_between continuation_first last_before_surrogate_range value
-        else is_continuation second
+  if leader == three_byte_leader_first
+    then is_between shortest_three_byte_second continuation_last second
+    else if leader == surrogate_range_leader
+      then is_between continuation_first last_before_surrogate_range second
+      else is_continuation second
 
-valid_second_of_four : Number → Source_byte → Bool
+valid_second_of_four : Source_byte → Source_byte → Bool
 valid_second_of_four leader second =
-  let value = source_byte_number second in
-    if leader == four_byte_leader_first
-      then is_between shortest_four_byte_second continuation_last value
-      else if leader == four_byte_leader_last
-        then is_between continuation_first last_unicode_scalar_second value
-        else is_continuation second
+  if leader == four_byte_leader_first
+    then is_between shortest_four_byte_second continuation_last second
+    else if leader == four_byte_leader_last
+      then is_between continuation_first last_unicode_scalar_second second
+      else is_continuation second
 
 export
 first_invalid_utf8 :
-  Number → List Source_byte → Maybe Source_decoding_issue
+  Cardinality → List Source_byte → Maybe Source_decoding_issue
 first_invalid_utf8 offset [] = Nothing
 first_invalid_utf8 offset (first :: rest) =
-  let leader = source_byte_number first in
-    if leader <= ascii_last
-      then first_invalid_utf8 (S offset) rest
-      else if is_between two_byte_leader_first two_byte_leader_last leader
+  if first <= ascii_last
+    then first_invalid_utf8 (S offset) rest
+    else if is_between two_byte_leader_first two_byte_leader_last first
+      then case rest of
+        second :: later ⇒
+          if is_continuation second
+            then first_invalid_utf8
+                   (offset + two_byte_sequence_width)
+                   later
+            else Just $ Invalid_utf8_near_byte offset
+        [] ⇒ Just $ Invalid_utf8_near_byte offset
+      else if is_between three_byte_leader_first three_byte_leader_last first
         then case rest of
-          second :: later ⇒
-            if is_continuation second
+          second :: third :: later ⇒
+            if valid_second_of_three first second && is_continuation third
               then first_invalid_utf8
-                     (offset + two_byte_sequence_width)
+                     (offset + three_byte_sequence_width)
                      later
               else Just $ Invalid_utf8_near_byte offset
-          [] ⇒ Just $ Invalid_utf8_near_byte offset
-        else if is_between three_byte_leader_first three_byte_leader_last leader
+          _ ⇒ Just $ Invalid_utf8_near_byte offset
+        else if is_between four_byte_leader_first four_byte_leader_last first
           then case rest of
-            second :: third :: later ⇒
-              if valid_second_of_three leader second && is_continuation third
+            second :: third :: fourth :: later ⇒
+              if valid_second_of_four first second &&
+                 is_continuation third && is_continuation fourth
                 then first_invalid_utf8
-                       (offset + three_byte_sequence_width)
+                       (offset + four_byte_sequence_width)
                        later
                 else Just $ Invalid_utf8_near_byte offset
             _ ⇒ Just $ Invalid_utf8_near_byte offset
-          else if is_between four_byte_leader_first four_byte_leader_last leader
-            then case rest of
-              second :: third :: fourth :: later ⇒
-                if valid_second_of_four leader second &&
-                   is_continuation third && is_continuation fourth
-                  then first_invalid_utf8
-                         (offset + four_byte_sequence_width)
-                         later
-                  else Just $ Invalid_utf8_near_byte offset
-              _ ⇒ Just $ Invalid_utf8_near_byte offset
-            else Just $ Invalid_utf8_near_byte offset
+          else Just $ Invalid_utf8_near_byte offset

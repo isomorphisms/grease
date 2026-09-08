@@ -2,7 +2,11 @@ name: ish acceptance
 
 on:
   push:
+    branches:
+      - ish
   pull_request:
+    branches:
+      - ish
 
 permissions:
   contents: read

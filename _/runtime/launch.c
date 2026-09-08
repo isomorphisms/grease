@@ -16,10 +16,17 @@ static const char *saved_environment_names[] = {
     "__ISH_LAUNCH_ENVIRONMENT",
 };
 
+enum {
+    decimal_radix = 10,
+    absent_environment_field_width = 2,
+    present_environment_fixed_width = 2,
+    overwrite_environment_value = 1,
+};
+
 static size_t decimal_digits(size_t value) {
     size_t digits = 1;
-    while (value >= 10) {
-        value /= 10;
+    while (value >= decimal_radix) {
+        value /= decimal_radix;
         digits++;
     }
     return digits;
@@ -34,10 +41,11 @@ static char *capture_environment(void) {
     for (size_t index = 0; index < value_count; index++) {
         const char *value = getenv(saved_environment_names[index]);
         if (value == NULL) {
-            total += 2;
+            total += absent_environment_field_width;
         } else {
             size_t length = strlen(value);
-            total += 2 + decimal_digits(length) + length;
+            total +=
+                present_environment_fixed_width + decimal_digits(length) + length;
         }
     }
 
@@ -51,9 +59,9 @@ static char *capture_environment(void) {
     for (size_t index = 0; index < value_count; index++) {
         const char *value = getenv(saved_environment_names[index]);
         if (value == NULL) {
-            memcpy(at, "0:", 2);
-            at += 2;
-            remaining -= 2;
+            memcpy(at, "0:", absent_environment_field_width);
+            at += absent_environment_field_width;
+            remaining -= absent_environment_field_width;
         } else {
             size_t length = strlen(value);
             int written = snprintf(at, remaining, "1%zu:", length);
@@ -151,10 +159,22 @@ int main(int count, char **values) {
         return fail("could not prepare the Chez process");
     }
 
-    if (setenv(launch_environment_name, environment_state, 1) != 0 ||
-        setenv("LD_LIBRARY_PATH", library_path, 1) != 0 ||
-        setenv("DYLD_LIBRARY_PATH", dynamic_library_path, 1) != 0 ||
-        setenv("IDRIS2_INC_SRC", application_directory, 1) != 0) {
+    if (setenv(
+            launch_environment_name,
+            environment_state,
+            overwrite_environment_value
+        ) != 0 ||
+        setenv("LD_LIBRARY_PATH", library_path, overwrite_environment_value) != 0 ||
+        setenv(
+            "DYLD_LIBRARY_PATH",
+            dynamic_library_path,
+            overwrite_environment_value
+        ) != 0 ||
+        setenv(
+            "IDRIS2_INC_SRC",
+            application_directory,
+            overwrite_environment_value
+        ) != 0) {
         return fail("could not prepare the Chez environment");
     }
 

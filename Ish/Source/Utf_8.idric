@@ -1,12 +1,10 @@
 module Ish.Source.Utf_8
 
-import Ish.Number
 import Ish.Source.Meaning
 
-%default total
-
 -- A Source_byte is one octet of the source file before UTF-8 decoding. Bits8
--- is only its compiler storage representation, not its meaning in ish.
+-- is only its compiler storage representation, not its meaning in ish. The
+-- alias is transparent because the decoder must inspect that representation.
 public export
 Source_byte : Type
 Source_byte = Bits8
@@ -101,7 +99,7 @@ valid_second_of_four leader second =
         then is_between continuation_first last_unicode_scalar_second value
         else is_continuation second
 
-public export
+export
 first_invalid_utf8 :
   Number → List Source_byte → Maybe Source_decoding_issue
 first_invalid_utf8 offset [] = Nothing

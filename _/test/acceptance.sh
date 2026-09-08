@@ -2,11 +2,22 @@
 set -eu
 
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+top_level_source=$repo_root/../Ish.idric
 temporary=$repo_root/test/tmp
 runner=$repo_root/build/exec/ish
 probe=$repo_root/test/probe
 
 mkdir -p "$temporary"
+
+if grep -E '^[[:space:]]*(%default|covering)|\bstop\b|Ish\.(Number|Text)' \
+  "$top_level_source" >/dev/null; then
+    printf '%s\n' 'top-level shell source exposes compiler or failure machinery' >&2
+    exit 1
+fi
+
+grep -F 'source ← receive_incantation_source' "$top_level_source" >/dev/null
+grep -F 'incantation ← understand_incantation source' "$top_level_source" >/dev/null
+grep -F 'cast_incantation incantation' "$top_level_source" >/dev/null
 
 source_file=$temporary/one-incantation.ish
 actual=$temporary/actual
@@ -83,7 +94,7 @@ set -e
 
 test "$missing_status" -eq 126
 test ! -s "$actual"
-grep -F 'execve failed for "/definitely/not/present/ish-probe" at [0,33)' \
+grep -F "could not cast incantation from \"$missing_source\": execve failed for \"/definitely/not/present/ish-probe\" at [0,33)" \
   "$diagnostic" >/dev/null
 
 path_source=$temporary/no-path-search.ish
@@ -97,7 +108,8 @@ set -e
 
 test "$path_status" -eq 126
 test ! -s "$actual"
-grep -F 'execve failed for "probe" at [0,5)' "$diagnostic" >/dev/null
+grep -F "could not cast incantation from \"$path_source\": execve failed for \"probe\" at [0,5)" \
+  "$diagnostic" >/dev/null
 
 invalid_source=$temporary/nul.ish
 printf 'bad\000name input\n' >"$invalid_source"

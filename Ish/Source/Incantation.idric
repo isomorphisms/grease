@@ -1,12 +1,8 @@
 module Ish.Source.Incantation
 
-import Data.String
+import Data.Text
 
-import Ish.Number
 import Ish.Source.Meaning
-import Ish.Text
-
-%default total
 
 record Source_token where
   constructor Token_at
@@ -58,10 +54,11 @@ name_from_token (Token_at text span) = Incantation_name_at text span
 input_from_token : Source_token → Input
 input_from_token (Token_at text span) = Input_at text span
 
-public export
-parse_source : Text → Source_analysis
+export
+parse_source : Incantation_source → Source_analysis
 parse_source source =
-  let characters = unpack source
+  let Source_from_file _ (Decoded_source source_text) = source
+      characters = unpack source_text
       source_length = length characters in
     case first_nul 0 characters of
       Just offset ⇒
@@ -77,4 +74,5 @@ parse_source source =
             let span = Characters_from_until 0 source_length
                 name = name_from_token first
                 inputs = map input_from_token rest in
-              Parsed_incantation $ Named_incantation_at span name inputs
+              Parsed_incantation $
+                Named_incantation_at source span name inputs

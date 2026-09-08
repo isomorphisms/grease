@@ -1,9 +1,0 @@
-module Ish.Text
-
-%default total
-
--- Text is the honest public representation at this stage. Semantic records
--- wrap it only where they restrict an operation or preserve information.
-public export
-Text : Type
-Text = String

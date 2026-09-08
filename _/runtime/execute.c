@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,8 +18,15 @@ static const char *restored_environment_names[] = {
     "__ISH_LAUNCH_ENVIRONMENT",
 };
 
+enum {
+    decimal_radix = 10,
+    encoded_presence_field_width = 2,
+    process_input_extra_entries = 2,
+    overwrite_environment_value = 1,
+};
+
 typedef struct {
-    int present;
+    bool present;
     char *value;
 } environment_value;
 
@@ -42,10 +50,10 @@ static int read_size(const char **cursor, size_t *result) {
 
     while (isdigit(*at)) {
         size_t digit = (size_t)(*at - '0');
-        if (value > (SIZE_MAX - digit) / 10) {
+        if (value > (SIZE_MAX - digit) / decimal_radix) {
             return EOVERFLOW;
         }
-        value = value * 10 + digit;
+        value = value * decimal_radix + digit;
         at++;
     }
 
@@ -94,7 +102,7 @@ static int restore_launch_environment(void) {
 
     for (size_t index = 0; index < value_count; index++) {
         if (*cursor == '0' && cursor[1] == ':') {
-            cursor += 2;
+            cursor += encoded_presence_field_width;
             continue;
         }
 
@@ -119,7 +127,7 @@ static int restore_launch_environment(void) {
 
         memcpy(values[index].value, cursor, byte_count);
         values[index].value[byte_count] = '\0';
-        values[index].present = 1;
+        values[index].present = true;
         cursor += byte_count;
     }
 
@@ -131,7 +139,11 @@ static int restore_launch_environment(void) {
     int first_error = 0;
     for (size_t index = 0; index < value_count; index++) {
         int result = values[index].present
-            ? setenv(restored_environment_names[index], values[index].value, 1)
+            ? setenv(
+                restored_environment_names[index],
+                values[index].value,
+                overwrite_environment_value
+            )
             : unsetenv(restored_environment_names[index]);
         if (result != 0 && first_error == 0) {
             first_error = errno;
@@ -154,11 +166,15 @@ static int decode_inputs(
         return error;
     }
 
-    if (count > (SIZE_MAX / sizeof(char *)) - 2) {
+    if (count > (SIZE_MAX / sizeof(char *)) - process_input_extra_entries) {
         return EOVERFLOW;
     }
 
-    char **entries = calloc(count + 2, sizeof(char *));
+    /* Reserve the program-name entry and the final null required by execve. */
+    char **entries = calloc(
+        count + process_input_extra_entries,
+        sizeof(char *)
+    );
     if (entries == NULL) {
         return ENOMEM;
     }
@@ -219,7 +235,10 @@ int ish_execve(const char *path, const char *encoded_inputs) {
         return error;
     }
 
-    char **process_inputs = calloc(input_count + 2, sizeof(char *));
+    char **process_inputs = calloc(
+        input_count + process_input_extra_entries,
+        sizeof(char *)
+    );
     if (process_inputs == NULL) {
         release_inputs(inputs, input_count);
         return ENOMEM;

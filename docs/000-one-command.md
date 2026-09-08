@@ -11,12 +11,17 @@ The first source form denotes exactly one incantation:
 
 ```text
 Incantation
+  source:
+    file path
+    decoded text
   span
   name:   IncantationName
   inputs: sequence of Input
 ```
 
-Every source word retains its source span. In milestone 0, each input produces
+The incantation retains the identity and decoded text of the source that
+produced it, and every source word retains its source span. In milestone 0,
+each input produces
 exactly one process input: there is no interpolation, splitting, joining,
 globbing, or substitution. Source text and the UTF-8 bytes passed to the
 operating system are distinct values; the probe exercises both ASCII and
@@ -28,14 +33,16 @@ accidentally from POSIX shell tokenization.
 
 ## Execution
 
-The runner:
+The shell:
 
-1. parses one source unit into one `Incantation`;
-2. converts the program and inputs at the Unix boundary to an argument vector
+1. receives and decodes one source unit;
+2. understands it as one source-identified `Incantation`;
+3. casts that incantation by converting the program and inputs at the Unix
+   boundary to an argument vector
    whose first entry is the program name and whose final machine entry is null;
-3. preserves the inherited environment, current directory, and file
+4. preserves the inherited environment, current directory, and file
    descriptors 0, 1, and 2;
-4. calls `execve` on an explicit absolute or relative program path.
+5. calls `execve` on an explicit absolute or relative program path.
 
 On success, `execve` replaces `ish`; milestone 0 therefore needs neither
 `fork` nor `wait`. The invoked program's exit status is automatically the

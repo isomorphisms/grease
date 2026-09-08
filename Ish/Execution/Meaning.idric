@@ -1,10 +1,10 @@
 module Ish.Execution.Meaning
 
-import Ish.Number
 import Ish.Source.Meaning
-import Ish.Text
 
-%default total
+-- These meanings cross execution layers together with their source evidence,
+-- so their constructors are deliberately visible. `public export` is
+-- bootstrap visibility machinery, not part of the shell's top-level story.
 
 -- Text already interpreted as the exact path supplied to execve. This value
 -- never means a PATH-searchable incantation name.
@@ -20,6 +20,7 @@ record Executable_path where
 public export
 record Current_process_replacement where
   constructor Replace_current_process_with
+  replacement_source : Incantation_source
   replacement_executable : Executable_path
   replacement_inputs : List Text
 

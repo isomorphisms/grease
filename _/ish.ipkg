@@ -2,10 +2,11 @@ package ish
 
 sourcedir = "src"
 
-modules = Ish.Number, Ish.Text, Ish.Source.Meaning, Ish.Source.Utf_8,
-          Ish.Source.Incantation, Ish.Source.Diagnostic,
-          Ish.Execution.Meaning, Ish.Execution.Status,
-          Ish.Execution.Current_process_replacement, Ish
+modules = Ish.Source.Meaning, Ish.Source.Utf_8, Ish.Source.Incantation,
+          Ish.Source.Diagnostic, Ish.Execution.Meaning,
+          Ish.Execution.Current_process_replacement, Ish.Failure,
+          Ish.Receive_incantation, Ish.Understand_incantation,
+          Ish.Cast_incantation, Ish
 
 main = Ish
 executable = ish-backend

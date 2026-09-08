@@ -34,7 +34,8 @@ The first such program is specified in
 [`docs/000-one-command.md`](docs/000-one-command.md), with concrete decisions
 recorded in
 [`docs/001-one-incantation-design.md`](docs/001-one-incantation-design.md): one
-parsed incantation becomes one process with exact textual inputs and status.
+source-identified incantation becomes one process with exact textual inputs and
+status.
 
 ## Build the first slice
 

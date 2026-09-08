@@ -12,8 +12,8 @@ function, though milestone 0 has none. An incantation's positional textual
 values are its **inputs**. Behavior modifiers may later be called **options**.
 
 Normal source, names, inputs, paths, environment values, and data are text.
-This implementation uses Idriç `String`, whose Chez foreign boundary encodes
-text as UTF-8. Source bytes are validated before decoding so malformed UTF-8
+Idriç calls decoded character text `Text`; its inherited Chez boundary encodes
+that text as UTF-8. Source bytes are validated before decoding so malformed UTF-8
 cannot silently become replacement characters. NUL is rejected because a Unix
 process input cannot contain it.
 Non-text Unix filenames are outside this chosen model; that is a deliberate
@@ -37,7 +37,9 @@ eventual word language.
 Spans are half-open character offsets into decoded source text. Byte offsets at
 the UTF-8 decoding boundary remain byte offsets rather than masquerading as
 source spans. The scanner retains a
-span for the name and each input. Empty or whitespace-only source is represented
+span for the name and each input. The resulting incantation retains its source
+file identity and decoded source text rather than receiving loose source
+numbers or text later. Empty or whitespace-only source is represented
 as an incomplete incantation awaiting a name, rather than discarded as a
 generic parse error. That distinction is the first small hook for a future
 type-guided interactive editor.
@@ -47,8 +49,8 @@ type-guided interactive editor.
 | Boundary | Before | After | Information deliberately changed |
 |---|---|---|---|
 | Scan | source text | located source words | word boundaries become explicit |
-| Parse | located words | incantation name and inputs | positional roles become explicit |
-| Prepare replacement | incantation name | current-process replacement | the name becomes an exact executable path, input spans are dropped, and no `PATH` search occurs |
+| Parse | source identity and located words | source-identified incantation, name, and inputs | positional roles become explicit |
+| Prepare replacement | incantation | current-process replacement | the name becomes an exact executable path, input spans are dropped, source identity is retained for failure, and no `PATH` search occurs |
 | Foreign call | path and input list | `execve` path and `argv` | text is UTF-8 encoded; the final null pointers are constructed |
 | Success | current process | invoked program | process image is replaced; environment, directory, and descriptors are inherited |
 | Failure | operating-system errno | process-replacement failure | path, source span, operation, and error text remain available for diagnosis |
@@ -65,22 +67,28 @@ packaging is therefore absent from the invoked program's environment.
 
 ## Type guidance without premature rejection
 
-The first parser distinguishes source text, spans, an incantation name, inputs,
-an incomplete incantation, an executable path, a description of replacing the
+The first parser distinguishes a source-file path, validated decoded source
+text, their combined source identity, spans, an incantation name, inputs, an
+incomplete incantation, an executable path, a description of replacing the
 current process, and a replacement failure. These distinctions either preserve
 information or restrict a real operation. Plain text, numbers, booleans, and
 lists remain plain where they are honest representations.
 
-The Idriç source uses `Number` for nonnegative counts and locations. Its one
-signed foreign-machine representation is named `Positive_or_negative_number`
-instead of leaking `Int` into the semantic model. Source octets are named
+The Idriç source uses the language's `Number` and `Text` vocabulary directly;
+it no longer needs application-local modules that reveal inherited `Nat` and
+`String` representations. The signed integer used by Unix status and errno APIs
+appears only at those inherited boundaries. Source octets are named
 `Source_byte`; `Bits8` is only that type's compiler representation. UTF-8 byte
 ranges are named, and the exceptional bounds are documented where they prevent
 overlong encodings, surrogate values, or values beyond U+10FFFF.
 
-The readable program entry remains in top-level `Ish.idric`. Supporting
-implementations are grouped beneath `Ish/`; build and foreign-runtime machinery
-remain beneath `_` and reach the top-level source through `_/src`.
+The readable program entry remains in top-level `Ish.idric`: receive source,
+understand an incantation, and cast it. Source receipt, understanding, casting,
+failure reporting, and foreign execution are grouped beneath `Ish/`; build and
+foreign-runtime machinery remain beneath `_` and reach the top-level source
+through `_/src`. Idriç makes `.idric` source total by default, so the program no
+longer begins with an inherited `%default total` directive. Its byte reader is
+structurally decreasing and does not require a `covering` escape.
 
 There is no catalogue of known incantations and no signature checking yet. Any
 nonempty name can prepare a current-process replacement, so ordinary Unix

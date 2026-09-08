@@ -1,28 +1,24 @@
 module Ish.Execution.Current_process_replacement
 
 import Data.Buffer
-import Data.String
+import Data.Text
 import System.Errno
 
 import Ish.Execution.Meaning
-import Ish.Number
 import Ish.Source.Meaning
-import Ish.Text
-
-%default total
 
 input_without_location : Input → Text
 input_without_location (Input_at text _) = text
 
 -- Preparing the replacement is the explicit point where an incantation name
 -- becomes an exact executable path. Milestone 0 performs no PATH search.
-public export
+export
 prepare_process_replacement : Incantation → Current_process_replacement
 prepare_process_replacement
-  (Named_incantation_at _ (Incantation_name_at name span) inputs) =
+  (Named_incantation_at source _ (Incantation_name_at name span) inputs) =
     let executable = Exact_executable_path name span
         input_texts = map input_without_location inputs in
-      Replace_current_process_with executable input_texts
+      Replace_current_process_with source executable input_texts
 
 -- The length framing exists only because the C foreign boundary cannot accept
 -- List Text. It is not source syntax and is not exposed as a shell value.
@@ -39,26 +35,30 @@ encode_inputs inputs =
 
 %foreign "C:ish_execve, libish_runtime"
 execute_primitive :
-  Text → Text → PrimIO Positive_or_negative_number
+  Text → Text → PrimIO Int
 
 -- A successful launch cannot produce an Idriç value: execve replaces this
 -- process. The only value returned by this action therefore denotes failure.
-public export
+export
 replace_current_process :
   Current_process_replacement → IO Process_replacement_failure
 replace_current_process replacement = do
-  let Replace_current_process_with path inputs = replacement
+  let Replace_current_process_with _ path inputs = replacement
       executable_text = path_text path
       encoded_inputs = encode_inputs inputs
   foreign_error ← primIO $ execute_primitive executable_text encoded_inputs
-  let error = cast foreign_error
+  let error : Number = cast foreign_error
   pure $ Could_not_replace_process replacement $ Errno_reported error
 
-public export
+export
 replacement_failure_text : Process_replacement_failure → Text
 replacement_failure_text
   (Could_not_replace_process
-    (Replace_current_process_with (Exact_executable_path path span) _)
+    (Replace_current_process_with
+      (Source_from_file (Source_at_path source_path) _)
+      (Exact_executable_path path span)
+      _)
     (Errno_reported error)) =
-    "execve failed for " ++ show path ++ " at " ++ show span ++
-    ": " ++ strerror (positive_or_negative_representation error)
+    "could not cast incantation from " ++ show source_path ++
+    ": execve failed for " ++ show path ++ " at " ++ show span ++
+    ": " ++ strerror (cast error)

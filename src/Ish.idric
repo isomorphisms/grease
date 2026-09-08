@@ -1,0 +1,280 @@
+module Ish
+
+import Data.Buffer
+import Data.String
+import System
+import System.Errno
+import System.File
+
+%default total
+
+-- Text is the honest public representation at this stage. The records below
+-- distinguish meanings that have different valid operations; Text itself is
+-- not wrapped merely to make the type graph look richer.
+public export
+Text : Type
+Text = String
+
+public export
+record SourceSpan where
+  constructor MkSourceSpan
+  startsAt : Nat
+  endsBefore : Nat
+
+public export
+Show SourceSpan where
+  show (MkSourceSpan start end) =
+    "[" ++ show start ++ "," ++ show end ++ ")"
+
+public export
+record IncantationName where
+  constructor NameAt
+  nameText : Text
+  nameSpan : SourceSpan
+
+public export
+record Input where
+  constructor InputAt
+  inputText : Text
+  inputSpan : SourceSpan
+
+public export
+record Incantation where
+  constructor IncantationAt
+  incantationSpan : SourceSpan
+  incantationName : IncantationName
+  incantationInputs : List Input
+
+public export
+record IncompleteIncantation where
+  constructor AwaitingNameAt
+  insertionSpan : SourceSpan
+
+public export
+data SourceIssue = NulTextAt SourceSpan
+
+public export
+data SourceAnalysis
+  = InvalidSource SourceIssue
+  | IncompleteSource IncompleteIncantation
+  | Ready Incantation
+
+record SourceToken where
+  constructor TokenAt
+  tokenText : Text
+  tokenSpan : SourceSpan
+
+data ScanState
+  = BetweenWords
+  | InsideWord Nat (List Char)
+
+finishWord : Nat -> Nat -> List Char -> SourceToken
+finishWord start end backward =
+  TokenAt (pack (reverse backward)) (MkSourceSpan start end)
+
+scanWords : Nat -> ScanState -> List SourceToken -> List Char -> List SourceToken
+scanWords offset BetweenWords found [] = reverse found
+scanWords offset (InsideWord start backward) found [] =
+  reverse (finishWord start offset backward :: found)
+scanWords offset BetweenWords found (c :: rest) =
+  if isSpace c
+    then scanWords (S offset) BetweenWords found rest
+    else scanWords (S offset) (InsideWord offset [c]) found rest
+scanWords offset (InsideWord start backward) found (c :: rest) =
+  if isSpace c
+    then scanWords
+           (S offset)
+           BetweenWords
+           (finishWord start offset backward :: found)
+           rest
+    else scanWords (S offset) (InsideWord start (c :: backward)) found rest
+
+firstNul : Nat -> List Char -> Maybe Nat
+firstNul offset [] = Nothing
+firstNul offset ('\NUL' :: rest) = Just offset
+firstNul offset (_ :: rest) = firstNul (S offset) rest
+
+public export
+data SourceDecodingIssue = InvalidUtf8At Nat
+
+byteValue : Bits8 -> Int
+byteValue byte = cast byte
+
+isContinuation : Bits8 -> Bool
+isContinuation byte =
+  let value = byteValue byte in value >= 128 && value <= 191
+
+validSecondOfThree : Int -> Bits8 -> Bool
+validSecondOfThree leader second =
+  let value = byteValue second in
+    if leader == 224
+      then value >= 160 && value <= 191
+      else if leader == 237
+        then value >= 128 && value <= 159
+        else isContinuation second
+
+validSecondOfFour : Int -> Bits8 -> Bool
+validSecondOfFour leader second =
+  let value = byteValue second in
+    if leader == 240
+      then value >= 144 && value <= 191
+      else if leader == 244
+        then value >= 128 && value <= 143
+        else isContinuation second
+
+firstInvalidUtf8 : Nat -> List Bits8 -> Maybe SourceDecodingIssue
+firstInvalidUtf8 offset [] = Nothing
+firstInvalidUtf8 offset (first :: rest) =
+  let leader = byteValue first in
+    if leader <= 127
+      then firstInvalidUtf8 (S offset) rest
+      else if leader >= 194 && leader <= 223
+        then case rest of
+          second :: later =>
+            if isContinuation second
+              then firstInvalidUtf8 (offset + 2) later
+              else Just (InvalidUtf8At offset)
+          [] => Just (InvalidUtf8At offset)
+        else if leader >= 224 && leader <= 239
+          then case rest of
+            second :: third :: later =>
+              if validSecondOfThree leader second && isContinuation third
+                then firstInvalidUtf8 (offset + 3) later
+                else Just (InvalidUtf8At offset)
+            _ => Just (InvalidUtf8At offset)
+          else if leader >= 240 && leader <= 244
+            then case rest of
+              second :: third :: fourth :: later =>
+                if validSecondOfFour leader second &&
+                   isContinuation third && isContinuation fourth
+                  then firstInvalidUtf8 (offset + 4) later
+                  else Just (InvalidUtf8At offset)
+              _ => Just (InvalidUtf8At offset)
+            else Just (InvalidUtf8At offset)
+
+asName : SourceToken -> IncantationName
+asName (TokenAt text span) = NameAt text span
+
+asInput : SourceToken -> Input
+asInput (TokenAt text span) = InputAt text span
+
+public export
+parseSource : Text -> SourceAnalysis
+parseSource source =
+  let characters = unpack source
+      sourceLength = length characters in
+    case firstNul 0 characters of
+      Just offset =>
+        InvalidSource (NulTextAt (MkSourceSpan offset (S offset)))
+      Nothing =>
+        case scanWords 0 BetweenWords [] characters of
+          [] =>
+            IncompleteSource
+              (AwaitingNameAt (MkSourceSpan sourceLength sourceLength))
+          first :: rest =>
+            Ready
+              (IncantationAt
+                (MkSourceSpan 0 sourceLength)
+                (asName first)
+                (map asInput rest))
+
+-- Resolution is an explicit semantic step even though milestone 0 performs
+-- no PATH search: the incantation name itself is interpreted as a path.
+public export
+record ExecutablePath where
+  constructor ExecutableAt
+  pathText : Text
+  pathSpan : SourceSpan
+
+public export
+record ExternalInvocation where
+  constructor InvokeExternal
+  executable : ExecutablePath
+  inputTexts : List Text
+
+stripInputLocation : Input -> Text
+stripInputLocation (InputAt text _) = text
+
+public export
+resolveExternal : Incantation -> ExternalInvocation
+resolveExternal (IncantationAt _ (NameAt name span) inputs) =
+  InvokeExternal
+    (ExecutableAt name span)
+    (map stripInputLocation inputs)
+
+-- The length framing exists only because the C foreign boundary cannot accept
+-- List Text. It is not source syntax and is not exposed as a shell value.
+encodeInput : Text -> Text
+encodeInput text = show (stringByteLength text) ++ ":" ++ text
+
+encodeInputs : List Text -> Text
+encodeInputs inputs =
+  show (length inputs) ++ ":" ++ fastConcat (map encodeInput inputs)
+
+%foreign "C:ish_execve, libish_runtime"
+executePrimitive : String -> String -> PrimIO Int
+
+public export
+record LaunchFailure where
+  constructor ExecveFailed
+  attemptedPath : ExecutablePath
+  operatingSystemCode : Int
+
+-- A successful launch cannot produce an Idriç value: execve replaces this
+-- process. The only value returned by this action therefore denotes failure.
+launch : ExternalInvocation -> IO LaunchFailure
+launch (InvokeExternal path inputs) = do
+  error <- primIO (executePrimitive (pathText path) (encodeInputs inputs))
+  pure (ExecveFailed path error)
+
+sourceIssueText : SourceIssue -> Text
+sourceIssueText (NulTextAt span) =
+  "source contains NUL text at " ++ show span ++
+  "; Unix process inputs cannot represent NUL"
+
+decodingIssueText : SourceDecodingIssue -> Text
+decodingIssueText (InvalidUtf8At byte) =
+  "source is not UTF-8 near byte " ++ show byte
+
+launchFailureText : LaunchFailure -> Text
+launchFailureText (ExecveFailed (ExecutableAt path span) error) =
+  "execve failed for " ++ show path ++ " at " ++ show span ++
+  ": " ++ strerror error
+
+writeDiagnostic : Text -> IO ()
+writeDiagnostic text = do
+  _ <- fPutStrLn stderr ("ish: " ++ text)
+  pure ()
+
+stop : Int -> Text -> IO a
+stop status text = do
+  writeDiagnostic text
+  exitWith (cast status)
+
+covering
+runSourceFile : String -> IO ()
+runSourceFile sourceFile = do
+  Right sourceBuffer <- createBufferFromFile sourceFile
+    | Left error => stop 2 ("could not read source " ++ show sourceFile ++
+                            ": " ++ show error)
+  sourceSize <- rawSize sourceBuffer
+  sourceBytes <- bufferData' sourceBuffer
+  case firstInvalidUtf8 0 sourceBytes of
+    Just issue => stop 2 (decodingIssueText issue)
+    Nothing => pure ()
+  source <- getString sourceBuffer 0 sourceSize
+  case parseSource source of
+    InvalidSource issue => stop 2 (sourceIssueText issue)
+    IncompleteSource (AwaitingNameAt span) =>
+      stop 2 ("incomplete incantation: expected a name at " ++ show span)
+    Ready incantation => do
+      failure <- launch (resolveExternal incantation)
+      stop 126 (launchFailureText failure)
+
+covering
+main : IO ()
+main = do
+  processInputs <- getArgs
+  case processInputs of
+    [ishPath, sourceFile] => runSourceFile sourceFile
+    _ => stop 2 "usage: ish SOURCE-FILE"

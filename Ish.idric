@@ -18,7 +18,7 @@ import Ish.Text
 
 write_diagnostic : Text → IO ()
 write_diagnostic text = do
-  _ <- fPutStrLn stderr $ "ish: " ++ text
+  _ ← fPutStrLn stderr $ "ish: " ++ text
   pure ()
 
 stop : Number → Text → IO a
@@ -29,31 +29,31 @@ stop status text = do
 covering
 run_source_file : Text → IO ()
 run_source_file source_file = do
-  Right source_buffer <- createBufferFromFile source_file
-    | Left error =>
+  Right source_buffer ← createBufferFromFile source_file
+    | Left error ⇒
         stop source_failure_status $
           "could not read source " ++ show source_file ++ ": " ++ show error
-  source_size <- rawSize source_buffer
-  source_bytes <- bufferData' source_buffer
+  source_size ← rawSize source_buffer
+  source_bytes ← bufferData' source_buffer
   case first_invalid_utf8 0 source_bytes of
-    Just issue => stop source_failure_status $ decoding_issue_text issue
-    Nothing => pure ()
-  source <- getString source_buffer 0 source_size
+    Just issue ⇒ stop source_failure_status $ decoding_issue_text issue
+    Nothing ⇒ pure ()
+  source ← getString source_buffer 0 source_size
   case parse_source source of
-    Rejected_source issue =>
+    Rejected_source issue ⇒
       stop source_failure_status $ source_issue_text issue
-    Awaiting_more_source (Awaiting_incantation_name_at span) =>
+    Awaiting_more_source (Awaiting_incantation_name_at span) ⇒
       stop source_failure_status $
         "incomplete incantation: expected a name at " ++ show span
-    Parsed_incantation incantation => do
-      failure <-
+    Parsed_incantation incantation ⇒ do
+      failure ←
         replace_current_process $ prepare_process_replacement incantation
       stop process_replacement_failure_status $ replacement_failure_text failure
 
 covering
 main : IO ()
 main = do
-  process_inputs <- getArgs
+  process_inputs ← getArgs
   case process_inputs of
-    [ish_path, source_file] => run_source_file source_file
-    _ => stop source_failure_status "usage: ish SOURCE-FILE"
+    [ish_path, source_file] ⇒ run_source_file source_file
+    _ ⇒ stop source_failure_status "usage: ish SOURCE-FILE"

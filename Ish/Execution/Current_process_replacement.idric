@@ -50,7 +50,7 @@ replace_current_process replacement = do
   let Replace_current_process_with path inputs = replacement
       executable_text = path_text path
       encoded_inputs = encode_inputs inputs
-  foreign_error <- primIO $ execute_primitive executable_text encoded_inputs
+  foreign_error ← primIO $ execute_primitive executable_text encoded_inputs
   let error = cast foreign_error
   pure $ Could_not_replace_process replacement $ Errno_reported error
 

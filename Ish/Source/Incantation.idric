@@ -64,16 +64,16 @@ parse_source source =
   let characters = unpack source
       source_length = length characters in
     case first_nul 0 characters of
-      Just offset =>
+      Just offset ⇒
         Rejected_source $
           Nul_in_source_at $ Characters_from_until offset $ S offset
-      Nothing =>
+      Nothing ⇒
         case scan_words 0 Between_words [] characters of
-          [] =>
+          [] ⇒
             Awaiting_more_source $
               Awaiting_incantation_name_at $
                 Characters_from_until source_length source_length
-          first :: rest =>
+          first :: rest ⇒
             let span = Characters_from_until 0 source_length
                 name = name_from_token first
                 inputs = map input_from_token rest in

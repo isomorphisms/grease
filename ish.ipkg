@@ -1,0 +1,10 @@
+package ish
+
+sourcedir = "src"
+
+modules = Ish
+
+main = Ish
+executable = ish-backend
+
+opts = "--codegen chez"

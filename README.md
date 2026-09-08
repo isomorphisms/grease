@@ -4,7 +4,7 @@ Grease is a language for smoothing the friction between things that come in
 contact with one another: a shell. It began with Oils and YSH, thickened with
 its own bubbles.
 
-This branch begins **ish**, the shell to be written in Odriç.
+This branch begins **ish**, a small shell written in the current Idriç.
 
 ## ish
 
@@ -13,34 +13,11 @@ Oils. It does not inherit a contract to remain compatible with any of them.
 Their syntax, runtime, object model, standard library, command behavior, and
 implementation are references rather than constraints.
 
-The direction is:
-
-```text
-Oils / YSH -> Grease -> ish
-                         ↕
-                       Odriç
-```
-
-The horizontal arrows mean descent, not compatibility. The vertical arrow
-means that `ish` and Odriç may change one another.
-
-Odriç is the deliberately unsettled branch of Idriç being born alongside the
-shell. Its ANF, prelude, primitives, representations, runtime seams, and native
-lowering are all open to pressure from `ish`. Idris supplied a useful starting
-shape—a language with dependent types—but is not the specification. If `ish`,
-IB, Android, mathematical programs, or direct machine targets expose a better
-primitive or representation, Odriç may grow around that pressure.
-
-[`odric.lock`](odric.lock) records the exact Odriç revision that defines the
-current build boundary. Moving that revision is an explicit part of changing
-`ish`, not an assumption that Odriç stands still.
-
-Two language-shape requirements are already comparatively firm:
-
-- mathematical and typographical notation should be designed for direct use,
-  not treated as aliases pasted over an otherwise fixed language;
-- vector-indexed function names, function families, and left-hand sides are
-  first-class design material.
+The Oils-derived Grease tree is evidence and reference material, not an
+implementation base that `ish` must preserve. `ish` may put useful pressure on
+Idriç and on future language work, but it does not depend on Adriç, Odriç, or
+Oodriç. [`idric.lock`](idric.lock) records the exact current Idriç revision used
+for the executable slice.
 
 `ish` should initially take on the work Grease already performs well for IB:
 process execution, pipes, HTTP and utility orchestration, files, temporary
@@ -54,8 +31,27 @@ Small real programs should pull the required shell forms, primitives, and
 runtime facilities into existence.
 
 The first such program is specified in
-[`docs/000-one-command.md`](docs/000-one-command.md): one parsed simple command
-becomes one process with exact arguments and status.
+[`docs/000-one-command.md`](docs/000-one-command.md), with concrete decisions
+recorded in
+[`docs/001-one-incantation-design.md`](docs/001-one-incantation-design.md): one
+parsed incantation becomes one process with exact textual inputs and status.
+
+## Build the first slice
+
+Build current Idriç at the revision in `idric.lock`, then provide its compiler
+to `make`:
+
+```sh
+make IDRIC=/path/to/Idric/idris2 \
+  CHEZ=/path/to/Idric/_/.tools/bin/scheme
+make test IDRIC=/path/to/Idric/idris2 \
+  CHEZ=/path/to/Idric/_/.tools/bin/scheme
+```
+
+The implementation uses the Chez backend, a native launcher, and one small C
+`execve` primitive. The launcher bypasses the backend's generated shell script
+and restores its temporary loader environment before the requested program is
+entered. The implementation does not use RefC or invoke an existing shell.
 
 ## Grease source
 

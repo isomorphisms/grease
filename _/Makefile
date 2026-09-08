@@ -27,6 +27,7 @@ test: build/exec/ish test/probe
 
 acceptance: clean
 	$(MAKE) test
+	$(MAKE) clean
 
 clean:
 	$(IDRIC) --clean ish.ipkg

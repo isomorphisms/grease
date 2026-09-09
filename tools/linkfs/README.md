@@ -2,141 +2,90 @@
 
 This is a Grease-side shell prototype for the fragment/link/index idea. It has no Idriç dependency.
 
-The design keeps ordinary files as the durable representation and deliberately materializes the same relationships in many filesystem indexes when that makes an important query cheap or inspectable.
-
-## State
+The concrete pipeline is:
 
 ```text
-ROOT/
-  links.tsv          source, relation, destination
-  indexes.tsv        arbitrary index path, entry name, target
-  objects/           objects/fragments/documents chosen by the caller
-  view/              rebuildable symlink projections
-  strands/           optional materialized ordered traversals
+root-cellar/ -> fragments/ -> cauldron/ -> pensive/strands/
 ```
 
-`links.tsv` is the logical graph. Every graph edge automatically gets `from/` and `to/` symlink projections. `indexes.tsv` describes additional caller-defined projections. `view/` can be deleted and rebuilt from the two durable tables.
+## Root cellar
 
-The program does not prescribe one ontology. Directory names are index keys chosen by the application.
+`root-cellar/` is where whole source ingredients land before chopping. The raw source stays intact. A source may carry a `knife/` receipt recording whether it has been chopped, which chopping program/version did it, and which fragment identities were produced.
 
-## Small graph
+## Fragments
+
+`fragments/` contains the chopped pieces. Fragment identities are the stable things that participate in graph links, Cauldron projections, reading observations, and Pensive strands.
+
+## Cauldron
+
+`cauldron/` is the multiply indexed layer over fragments. It deliberately materializes the same relationships many ways when that makes an important query cheap or inspectable.
+
+`links.tsv` is the logical fragment graph. Every graph edge automatically gets forward and reverse symlink projections:
+
+```text
+cauldron/from/231/next/232 -> fragments/232
+cauldron/to/232/next/231   -> fragments/231
+```
+
+`indexes.tsv` describes additional caller-defined projections. Examples include:
+
+```text
+cauldron/authors/...
+cauldron/titles/...
+cauldron/arxiv/math.HO/...
+cauldron/arxiv/math.CO/...
+cauldron/themes/...
+cauldron/tf-idf/...
+cauldron/pmi/...
+cauldron/lsi/...
+cauldron/bm25/...
+```
+
+These are indexes, not one ontology or ownership tree. The same fragment can appear in as many of them as useful. Directory names and symlink names are themselves another indexing layer.
+
+For a multi-author arXiv paper, a caller may create one projection under each author and each arXiv category. Poetry Foundation themes can become another independent projection. Later TF-IDF, mutual-information/PMI feature scoring, LSI, BM25, or other retrieval passes can emit their own trees without rewriting fragments.
+
+`rebuild` deletes and recreates the generated Cauldron tree from `links.tsv` and `indexes.tsv`.
+
+## Pensive strands
+
+A strand is an ordered sequence of fragment identities chosen for reading or work. It is not the full graph and it is not another copy of fragment contents.
 
 ```sh
-linkfs.sh init ./state
-
-linkfs.sh link ./state 231 next 232
-linkfs.sh link ./state 232 next 240
-linkfs.sh link ./state 231 citation 804
-
-linkfs.sh from ./state 231
-linkfs.sh to ./state 804 citation
-linkfs.sh strand ./state 231 next
+linkfs.sh strand ./state 231 next > ./state/pensive/strands/reading-1
 ```
 
-Adding the first edge also materializes:
+The strand operation reads `links.tsv` once and follows the selected relation in memory, avoiding one disk lookup per hop. A later implementation can compile the same graph into source-sorted and destination-sorted binary adjacency arrays for mmap/range reads without changing the shell-facing model.
 
-```text
-view/from/231/next/232 -> objects/232
-view/to/232/next/231   -> objects/231
-```
-
-These are derived from `links.tsv`; they are not separate truth. `rebuild` recreates them.
-
-The `strand` operation reads `links.tsv` once and follows the selected relation in memory. It does not perform one disk lookup for each hop.
-
-A later implementation can compile the same table into source-sorted and destination-sorted binary adjacency arrays for mmap/range reads without changing the shell-facing model.
-
-## Arbitrary filesystem projections
-
-A projection is an arbitrary relative index path plus an entry name and a target relative to the state root:
+## Commands
 
 ```sh
-linkfs.sh index ./state authors/Emmy-Noether 2609.01234 objects/2609.01234
-linkfs.sh index ./state arxiv/math.HO 2609.01234 objects/2609.01234
+linkfs.sh init ROOT
+linkfs.sh link ROOT FROM KIND TO
+linkfs.sh index ROOT INDEX_PATH ENTRY TARGET
+linkfs.sh from ROOT FRAGMENT [KIND]
+linkfs.sh to ROOT FRAGMENT [KIND]
+linkfs.sh strand ROOT START KIND
+linkfs.sh rebuild ROOT
 ```
 
-The same object can appear in as many projections as useful. The directory hierarchy is an index, not ownership.
+A caller-defined projection targets a path relative to `ROOT`, normally a fragment:
 
-This means a caller can freely create indexes such as:
-
-```text
-view/by-link-kind/...
-view/by-source/...
-view/by-strand/...
-view/authors/...
-view/titles/...
-view/themes/...
-view/arxiv/...
-view/tf-idf/...
-view/pmi/...
-view/lsi/...
-view/bm25/...
+```sh
+linkfs.sh index ./state authors/Emmy-Noether 2609.01234 fragments/2609.01234
+linkfs.sh index ./state arxiv/math.HO 2609.01234 fragments/2609.01234
 ```
-
-without changing the engine.
-
-## Cauldron-style document indexes
-
-A document corpus can use the same mechanism directly.
-
-For an arXiv paper, keep one canonical document object and project it independently by author, title, arXiv subject, themes, or later statistical indexes:
-
-```text
-objects/<document-id>/
-
-view/authors/<author>/<document-id>             -> object
-view/titles/<title>                             -> object
-view/arxiv/math.HO/<document-id>                -> object
-view/arxiv/math.CO/<document-id>                -> object
-view/themes/love/<document-id>                  -> object
-view/themes/nature/<document-id>                -> object
-view/tf-idf/<term>/<ranked-entry>               -> object
-view/pmi/<term>/<ranked-entry>                  -> object
-view/lsi/<concept-or-component>/<ranked-entry>  -> object
-view/bm25/<query-or-term>/<ranked-entry>         -> object
-```
-
-For a multi-author paper, place one symlink under each author's directory. The title can itself be the symlink name under `titles/` when it is filesystem-safe, or the caller can use a reversible filename encoding. Nothing prevents the same paper from simultaneously appearing under several arXiv categories.
-
-`themes` is only an example application name; the link/index engine does not reserve it. A corpus may instead call that projection `topoi`, `facets`, `subjects`, or something else.
-
-For Poetry Foundation material, one projection can mirror each theme in the source list and place symlinks to the poems/documents under every applicable theme. For arXiv, another projection can use the source categories such as `math.HO` and `math.CO`. These coexist with author and title indexes because they all point to the same canonical objects.
-
-Later corpus scans can add new projections for distinguishing terms or retrieval models without rewriting the objects. TF-IDF, mutual-information/PMI feature scoring, latent semantic indexing, BM25, or another scorer can each emit its own directory tree. Sortable score/rank prefixes may be put in entry names when directory enumeration should already be ranking order.
-
-This is deliberately not one master `topics` hierarchy. Each indexing method gets its own projection and can disagree with the others.
 
 ## URL identity
 
-A POSIX filename cannot literally contain `/`, so a complete `https://...` URL cannot be one raw filename. A corpus that wants URL-shaped object identity may choose either:
-
-- a reversible filename encoding of the URL; or
-- a URL-shaped directory hierarchy.
-
-For example, either can represent the same source:
+The convenient filesystem index does not need to preserve `http` versus `https` in every path. Exact requested/resolved URLs can remain source metadata in the root cellar. A URL projection may use a domain/path hierarchy such as:
 
 ```text
-objects/https%3A%2F%2Farxiv.org%2Fabs%2F2609.01234/
-
-objects/https/arxiv.org/abs/2609.01234/
+cauldron/url/arxiv.org/abs/2609.01234
 ```
 
-The engine deliberately does not impose either choice. The important invariant is that all projections ultimately point to the same chosen canonical object.
-
-## Why symlinks
-
-An empty marker file can record membership, but a symlink carries both membership and a traversable target. The containing directories and symlink filename remain free to encode additional index dimensions.
-
-For example:
-
-```text
-view/authors/Emmy-Noether/2609.01234 -> ../../../objects/...
-```
-
-says both "this object appears under this author index" and "follow this entry to the object." Another directory can independently index the same object by title, subject, theme, score, or strand position.
+and add a scheme-specific projection only if some source actually requires that distinction.
 
 ## Boundary
 
-This is not a database server and it is not an OS/filesystem rewrite. It is intended to establish the semantics with ordinary files on Android first.
-
-Hot paths need not traverse symlinks one by one. Durable tables and filesystem projections can be compiled into compact source/destination indexes or materialized strands. Redundant indexes are expected: the semantic-system goal is to make useful relationships cheap from several directions rather than preserve one normalized physical representation.
+This is not a database server and not an OS/filesystem rewrite. It is intended to establish the semantics with ordinary files and symlinks on Android first. Hot readers do not need to traverse those symlinks one by one: the durable tables can be compiled into compact adjacency indexes or strands.

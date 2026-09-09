@@ -25,6 +25,14 @@ safe_field() {
   esac
 }
 
+safe_component() {
+  safe_field "$1" || return 1
+  case "$1" in
+    ''|*/*|.|..) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 safe_relative_path() {
   path=$1
   [ -n "$path" ] || return 1
@@ -44,8 +52,8 @@ require_state() {
 initialize() {
   root=$1
   mkdir -p "$root/objects" "$root/view" "$root/strands"
-  : > "$root/links.tsv"
-  : > "$root/indexes.tsv"
+  [ -f "$root/links.tsv" ] || : > "$root/links.tsv"
+  [ -f "$root/indexes.tsv" ] || : > "$root/indexes.tsv"
 }
 
 append_unique() {
@@ -60,8 +68,8 @@ relative_target() {
   index_path=$1
   target=$2
 
-  # The symlink lives below ROOT/view/INDEX_PATH/. Walk once for `view`
-  # and once for each INDEX_PATH component, then descend to TARGET.
+  # The symlink lives below one view directory plus INDEX_PATH. Walk back to
+  # the state root, then descend to TARGET.
   prefix=..
   rest=$index_path
   while :; do
@@ -74,27 +82,33 @@ relative_target() {
   printf '%s/%s\n' "$prefix" "$target"
 }
 
-materialize_index() {
-  root=$1
+materialize_index_in() {
+  view_root=$1
   index_path=$2
   entry=$3
   target=$4
 
   safe_relative_path "$index_path" || fail "unsafe index path: $index_path"
   safe_relative_path "$target" || fail "unsafe target path: $target"
-  safe_field "$entry" || fail "index entry contains tab or newline"
-  case "$entry" in
-    ''|*/*) fail "index entry must be one filename: $entry" ;;
-    .|..) fail "unsafe index entry: $entry" ;;
-  esac
+  safe_component "$entry" || fail "index entry must be one safe filename: $entry"
 
-  directory="$root/view/$index_path"
+  directory="$view_root/$index_path"
   mkdir -p "$directory"
   link_target=$(relative_target "$index_path" "$target")
   temporary="$directory/.${entry}.tmp.$$"
   rm -f "$temporary"
   ln -s "$link_target" "$temporary"
   mv -f "$temporary" "$directory/$entry"
+}
+
+materialize_link_in() {
+  view_root=$1
+  from=$2
+  kind=$3
+  to=$4
+
+  materialize_index_in "$view_root" "from/$from/$kind" "$to" "objects/$to"
+  materialize_index_in "$view_root" "to/$to/$kind" "$from" "objects/$from"
 }
 
 set_index_record() {
@@ -117,9 +131,11 @@ add_link() {
   kind=$3
   to=$4
   require_state "$root"
-  safe_field "$from" && safe_field "$kind" && safe_field "$to" || fail "link fields may not contain tabs or newlines"
-  [ -n "$from" ] && [ -n "$kind" ] && [ -n "$to" ] || fail "link fields may not be empty"
+  safe_component "$from" || fail "FROM must be one safe fragment id: $from"
+  safe_component "$kind" || fail "KIND must be one safe link name: $kind"
+  safe_component "$to" || fail "TO must be one safe fragment id: $to"
   append_unique "$root/links.tsv" "$(printf '%s\t%s\t%s' "$from" "$kind" "$to")"
+  materialize_link_in "$root/view" "$from" "$kind" "$to"
 }
 
 add_index() {
@@ -129,8 +145,11 @@ add_index() {
   target=$4
   require_state "$root"
   safe_field "$index_path" && safe_field "$entry" && safe_field "$target" || fail "index fields may not contain tabs or newlines"
-  materialize_index "$root" "$index_path" "$entry" "$target"
+  safe_relative_path "$index_path" || fail "unsafe index path: $index_path"
+  safe_component "$entry" || fail "index entry must be one safe filename: $entry"
+  safe_relative_path "$target" || fail "unsafe target path: $target"
   set_index_record "$root" "$index_path" "$entry" "$target"
+  materialize_index_in "$root/view" "$index_path" "$entry" "$target"
 }
 
 rebuild() {
@@ -138,15 +157,21 @@ rebuild() {
   require_state "$root"
   rm -rf "$root/view.new"
   mkdir -p "$root/view.new"
+
+  if [ -s "$root/links.tsv" ]; then
+    while IFS="$tab" read -r from kind to; do
+      [ -n "$from" ] || continue
+      materialize_link_in "$root/view.new" "$from" "$kind" "$to"
+    done < "$root/links.tsv"
+  fi
+
   if [ -s "$root/indexes.tsv" ]; then
     while IFS="$tab" read -r index_path entry target; do
       [ -n "$index_path" ] || continue
-      directory="$root/view.new/$index_path"
-      mkdir -p "$directory"
-      link_target=$(relative_target "$index_path" "$target")
-      ln -s "$link_target" "$directory/$entry"
+      materialize_index_in "$root/view.new" "$index_path" "$entry" "$target"
     done < "$root/indexes.tsv"
   fi
+
   rm -rf "$root/view.old"
   if [ -e "$root/view" ]; then
     mv "$root/view" "$root/view.old"

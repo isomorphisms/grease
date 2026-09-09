@@ -51,7 +51,7 @@ require_state() {
 
 initialize() {
   root=$1
-  mkdir -p "$root/objects" "$root/view" "$root/strands"
+  mkdir -p "$root/fragments" "$root/view" "$root/pensive/strands"
   [ -f "$root/links.tsv" ] || : > "$root/links.tsv"
   [ -f "$root/indexes.tsv" ] || : > "$root/indexes.tsv"
 }
@@ -68,8 +68,8 @@ relative_target() {
   index_path=$1
   target=$2
 
-  # The symlink lives below one view directory plus INDEX_PATH. Walk back to
-  # the state root, then descend to TARGET.
+  # The symlink lives below one projection directory plus INDEX_PATH. Walk
+  # back to the state root, then descend to TARGET.
   prefix=..
   rest=$index_path
   while :; do
@@ -107,8 +107,8 @@ materialize_link_in() {
   kind=$3
   to=$4
 
-  materialize_index_in "$view_root" "from/$from/$kind" "$to" "objects/$to"
-  materialize_index_in "$view_root" "to/$to/$kind" "$from" "objects/$from"
+  materialize_index_in "$view_root" "from/$from/$kind" "$to" "fragments/$to"
+  materialize_index_in "$view_root" "to/$to/$kind" "$from" "fragments/$from"
 }
 
 set_index_record() {
@@ -207,7 +207,8 @@ make_strand() {
   require_state "$root"
 
   # Read the table once. Following the strand happens in awk memory rather
-  # than one filesystem lookup per hop.
+  # than one filesystem lookup per hop. The caller may persist this sequence
+  # under pensive/strands/.
   awk -F '\t' -v start="$start" -v wanted="$kind" '
     $2 == wanted {
       if ($1 in next_fragment && next_fragment[$1] != $3) {

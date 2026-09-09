@@ -1,0 +1,21 @@
+name: linkfs-draft
+
+on:
+  push:
+    branches:
+      - draft/fragment-link-index
+    paths:
+      - 'tools/linkfs/**'
+      - '.github/workflows/linkfs-draft.yml'
+  pull_request:
+    paths:
+      - 'tools/linkfs/**'
+      - '.github/workflows/linkfs-draft.yml'
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Grease filesystem link/index acceptance
+        run: sh tools/linkfs/acceptance.sh

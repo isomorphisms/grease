@@ -51,7 +51,7 @@ require_state() {
 
 initialize() {
   root=$1
-  mkdir -p "$root/fragments" "$root/view" "$root/pensive/strands"
+  mkdir -p "$root/root-cellar" "$root/fragments" "$root/view" "$root/pensive/strands"
   [ -f "$root/links.tsv" ] || : > "$root/links.tsv"
   [ -f "$root/indexes.tsv" ] || : > "$root/indexes.tsv"
 }

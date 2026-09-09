@@ -3,6 +3,7 @@
 set -eu
 
 program_name=${0##*/}
+tab=$(printf '\t')
 
 fail() {
   printf '%s: %s\n' "$program_name" "$1" >&2
@@ -15,8 +16,11 @@ usage() {
 
 safe_field() {
   case "$1" in
-    *"	"*|*"
-"*) return 1 ;;
+    *"$tab"*) return 1 ;;
+  esac
+  case "$1" in
+    *'
+'*) return 1 ;;
     *) return 0 ;;
   esac
 }
@@ -47,7 +51,7 @@ initialize() {
 append_unique() {
   file=$1
   line=$2
-  if ! grep -F -x -- "$line" "$file" >/dev/null 2>&1; then
+  if ! grep -F -x -e "$line" "$file" >/dev/null 2>&1; then
     printf '%s\n' "$line" >> "$file"
   fi
 }
@@ -56,16 +60,16 @@ relative_target() {
   index_path=$1
   target=$2
 
-  # The symlink lives below ROOT/view/INDEX_PATH/.  Walk once for `view`
+  # The symlink lives below ROOT/view/INDEX_PATH/. Walk once for `view`
   # and once for each INDEX_PATH component, then descend to TARGET.
   prefix=..
-  old_ifs=$IFS
-  IFS=/
-  set -- $index_path
-  IFS=$old_ifs
-  for component do
-    [ -n "$component" ] || continue
+  rest=$index_path
+  while :; do
     prefix="$prefix/.."
+    case "$rest" in
+      */*) rest=${rest#*/} ;;
+      *) break ;;
+    esac
   done
   printf '%s/%s\n' "$prefix" "$target"
 }
@@ -93,6 +97,20 @@ materialize_index() {
   mv -f "$temporary" "$directory/$entry"
 }
 
+set_index_record() {
+  root=$1
+  index_path=$2
+  entry=$3
+  target=$4
+  temporary="$root/.indexes.tsv.tmp.$$"
+
+  awk -F '\t' -v index_path="$index_path" -v entry="$entry" '
+    !($1 == index_path && $2 == entry) { print }
+  ' "$root/indexes.tsv" > "$temporary"
+  printf '%s\t%s\t%s\n' "$index_path" "$entry" "$target" >> "$temporary"
+  mv "$temporary" "$root/indexes.tsv"
+}
+
 add_link() {
   root=$1
   from=$2
@@ -112,7 +130,7 @@ add_index() {
   require_state "$root"
   safe_field "$index_path" && safe_field "$entry" && safe_field "$target" || fail "index fields may not contain tabs or newlines"
   materialize_index "$root" "$index_path" "$entry" "$target"
-  append_unique "$root/indexes.tsv" "$(printf '%s\t%s\t%s' "$index_path" "$entry" "$target")"
+  set_index_record "$root" "$index_path" "$entry" "$target"
 }
 
 rebuild() {
@@ -121,7 +139,7 @@ rebuild() {
   rm -rf "$root/view.new"
   mkdir -p "$root/view.new"
   if [ -s "$root/indexes.tsv" ]; then
-    while IFS="	" read -r index_path entry target; do
+    while IFS="$tab" read -r index_path entry target; do
       [ -n "$index_path" ] || continue
       directory="$root/view.new/$index_path"
       mkdir -p "$directory"
@@ -163,7 +181,7 @@ make_strand() {
   kind=$3
   require_state "$root"
 
-  # Read the table once.  Following the strand happens in awk memory rather
+  # Read the table once. Following the strand happens in awk memory rather
   # than one filesystem lookup per hop.
   awk -F '\t' -v start="$start" -v wanted="$kind" '
     $2 == wanted {

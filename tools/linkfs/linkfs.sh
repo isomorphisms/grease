@@ -51,7 +51,7 @@ require_state() {
 
 initialize() {
   root=$1
-  mkdir -p "$root/root-cellar" "$root/fragments" "$root/view" "$root/pensive/strands"
+  mkdir -p "$root/root-cellar" "$root/fragments" "$root/cauldron" "$root/pensive/strands"
   [ -f "$root/links.tsv" ] || : > "$root/links.tsv"
   [ -f "$root/indexes.tsv" ] || : > "$root/indexes.tsv"
 }
@@ -68,8 +68,8 @@ relative_target() {
   index_path=$1
   target=$2
 
-  # The symlink lives below one projection directory plus INDEX_PATH. Walk
-  # back to the state root, then descend to TARGET.
+  # The symlink lives below cauldron/INDEX_PATH. Walk back to the state root,
+  # then descend to TARGET.
   prefix=..
   rest=$index_path
   while :; do
@@ -83,7 +83,7 @@ relative_target() {
 }
 
 materialize_index_in() {
-  view_root=$1
+  cauldron_root=$1
   index_path=$2
   entry=$3
   target=$4
@@ -92,7 +92,7 @@ materialize_index_in() {
   safe_relative_path "$target" || fail "unsafe target path: $target"
   safe_component "$entry" || fail "index entry must be one safe filename: $entry"
 
-  directory="$view_root/$index_path"
+  directory="$cauldron_root/$index_path"
   mkdir -p "$directory"
   link_target=$(relative_target "$index_path" "$target")
   temporary="$directory/.${entry}.tmp.$$"
@@ -102,13 +102,13 @@ materialize_index_in() {
 }
 
 materialize_link_in() {
-  view_root=$1
+  cauldron_root=$1
   from=$2
   kind=$3
   to=$4
 
-  materialize_index_in "$view_root" "from/$from/$kind" "$to" "fragments/$to"
-  materialize_index_in "$view_root" "to/$to/$kind" "$from" "fragments/$from"
+  materialize_index_in "$cauldron_root" "from/$from/$kind" "$to" "fragments/$to"
+  materialize_index_in "$cauldron_root" "to/$to/$kind" "$from" "fragments/$from"
 }
 
 set_index_record() {
@@ -135,7 +135,7 @@ add_link() {
   safe_component "$kind" || fail "KIND must be one safe link name: $kind"
   safe_component "$to" || fail "TO must be one safe fragment id: $to"
   append_unique "$root/links.tsv" "$(printf '%s\t%s\t%s' "$from" "$kind" "$to")"
-  materialize_link_in "$root/view" "$from" "$kind" "$to"
+  materialize_link_in "$root/cauldron" "$from" "$kind" "$to"
 }
 
 add_index() {
@@ -149,35 +149,35 @@ add_index() {
   safe_component "$entry" || fail "index entry must be one safe filename: $entry"
   safe_relative_path "$target" || fail "unsafe target path: $target"
   set_index_record "$root" "$index_path" "$entry" "$target"
-  materialize_index_in "$root/view" "$index_path" "$entry" "$target"
+  materialize_index_in "$root/cauldron" "$index_path" "$entry" "$target"
 }
 
 rebuild() {
   root=$1
   require_state "$root"
-  rm -rf "$root/view.new"
-  mkdir -p "$root/view.new"
+  rm -rf "$root/cauldron.new"
+  mkdir -p "$root/cauldron.new"
 
   if [ -s "$root/links.tsv" ]; then
     while IFS="$tab" read -r from kind to; do
       [ -n "$from" ] || continue
-      materialize_link_in "$root/view.new" "$from" "$kind" "$to"
+      materialize_link_in "$root/cauldron.new" "$from" "$kind" "$to"
     done < "$root/links.tsv"
   fi
 
   if [ -s "$root/indexes.tsv" ]; then
     while IFS="$tab" read -r index_path entry target; do
       [ -n "$index_path" ] || continue
-      materialize_index_in "$root/view.new" "$index_path" "$entry" "$target"
+      materialize_index_in "$root/cauldron.new" "$index_path" "$entry" "$target"
     done < "$root/indexes.tsv"
   fi
 
-  rm -rf "$root/view.old"
-  if [ -e "$root/view" ]; then
-    mv "$root/view" "$root/view.old"
+  rm -rf "$root/cauldron.old"
+  if [ -e "$root/cauldron" ]; then
+    mv "$root/cauldron" "$root/cauldron.old"
   fi
-  mv "$root/view.new" "$root/view"
-  rm -rf "$root/view.old"
+  mv "$root/cauldron.new" "$root/cauldron"
+  rm -rf "$root/cauldron.old"
 }
 
 query_from() {

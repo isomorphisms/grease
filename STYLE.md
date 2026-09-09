@@ -28,9 +28,8 @@ export` only when transitive API re-export is deliberate.
 - Use `snake_case` for names under our control and descriptive names rather
   than inherited Haskell abbreviations.
 - Use canonical Idriç vocabulary directly rather than recreating local aliases.
-  `Text` is decoded text. `Number` means a positive whole number beginning at
-  one. `Cardinality` is the zero-capable whole-number type for counts, lengths,
-  and offsets. `±Number` is for genuinely signed integer meanings.
+  `Text` is decoded text. At the exact compiler revision accepted by this slice,
+  `Number` is the nonnegative whole-number spelling and includes zero.
 - Do not relabel an ABI integer as a semantic number merely to hide `Int`.
   Consume raw signed representations at the Unix/foreign boundary and carry a
   shell meaning upward.
@@ -41,8 +40,8 @@ export` only when transitive API re-export is deliberate.
   executable paths, one input, input lists, process replacements, failures, and
   exit representations distinct where their operations differ.
 - A raw source byte remains `Source_byte` at the decoder boundary. Do not call a
-  byte value `Number` or `Cardinality`; only byte counts and offsets are
-  Cardinalities.
+  byte value `Number`; byte counts and offsets may be Numbers while byte values
+  remain source bytes.
 - Use `Bool` for predicates, not as a premature projection of source analysis,
   launch failure, process completion, or protocol state.
 - Prefer named records over heterogeneous tuples. Do not create an unrestricted

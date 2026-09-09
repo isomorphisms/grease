@@ -10,11 +10,10 @@ import Ish.Source.Meaning
 import Ish.Source.Utf_8
 
 -- Buffer sizes are inherited machine integers at the library boundary. A
--- source byte count can be zero, so the shell converts it to Cardinality and
--- uses structural recursion rather than Data.Buffer's covering-only list
--- conversion.
+-- source byte count can be zero, so the shell converts it to Number and uses
+-- structural recursion rather than Data.Buffer's covering-only list conversion.
 source_bytes_from :
-  Buffer → Cardinality → List Source_byte → IO (List Source_byte)
+  Buffer → Number → List Source_byte → IO (List Source_byte)
 source_bytes_from source_buffer 0 found = pure found
 source_bytes_from source_buffer (S previous_offset) found = do
   source_byte ← getBits8 source_buffer $ cast previous_offset
@@ -28,7 +27,7 @@ receive_source_file path = do
         report_source_failure_and_exit $
           "could not read source " ++ show path_text ++ ": " ++ show error
   source_size_representation ← rawSize source_buffer
-  let source_size : Cardinality = cast source_size_representation
+  let source_size : Number = cast source_size_representation
   source_bytes ← source_bytes_from source_buffer source_size []
   case first_invalid_utf8 0 source_bytes of
     Just issue ⇒

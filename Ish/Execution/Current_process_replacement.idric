@@ -4,7 +4,7 @@ import Data.Buffer
 import Data.Text
 import System.Errno
 
-import Ish.Execution.Meaning
+import public Ish.Execution.Meaning
 import Ish.Source.Meaning
 
 input_without_location : Input → Text

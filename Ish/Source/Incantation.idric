@@ -11,16 +11,16 @@ record Source_token where
 
 data Scan_state
   = Between_words
-  | Inside_word Cardinality (List Char)
+  | Inside_word Number (List Char)
 
-finish_word : Cardinality → Cardinality → List Char → Source_token
+finish_word : Number → Number → List Char → Source_token
 finish_word start end backward =
   let text = pack $ reverse backward
       span = Characters_from_until start end in
     Token_at text span
 
 scan_words :
-  Cardinality → Scan_state → List Source_token → List Char → List Source_token
+  Number → Scan_state → List Source_token → List Char → List Source_token
 scan_words offset Between_words found [] = reverse found
 scan_words offset (Inside_word start backward) found [] =
   reverse $ finish_word start offset backward :: found
@@ -43,7 +43,7 @@ scan_words offset (Inside_word start backward) found (character :: rest) =
              found
              rest
 
-first_nul : Cardinality → List Char → Maybe Cardinality
+first_nul : Number → List Char → Maybe Number
 first_nul offset [] = Nothing
 first_nul offset ('\NUL' :: rest) = Just offset
 first_nul offset (_ :: rest) = first_nul (S offset) rest

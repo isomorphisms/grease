@@ -33,14 +33,13 @@ This spelling is intentionally provisional. It exists so that the semantic
 and operating-system boundaries can run end to end; it does not settle a
 future word language.
 
-Spans are half-open `Cardinality` character offsets into decoded source text.
-Byte offsets at the UTF-8 decoding boundary are also Cardinalities, but remain
-byte offsets rather than masquerading as source spans. The scanner retains a
-span for the name and each input. The resulting incantation retains its source
-file identity and decoded source text rather than receiving loose source
-counts or text later. Empty or whitespace-only source is represented as an
-incomplete incantation awaiting a name rather than discarded as a generic parse
-error.
+Spans are half-open `Number` character offsets into decoded source text. Byte
+offsets at the UTF-8 decoding boundary are also Numbers, but remain byte
+offsets rather than masquerading as source spans. The scanner retains a span
+for the name and each input. The resulting incantation retains its source file
+identity and decoded source text rather than receiving loose source counts or
+text later. Empty or whitespace-only source is represented as an incomplete
+incantation awaiting a name rather than discarded as a generic parse error.
 
 ## Semantic path
 
@@ -73,15 +72,14 @@ information or restrict a real operation. Plain values remain plain where they
 are honest representations.
 
 The maintained source uses canonical Idriç vocabulary directly. `Text` is
-ordinary decoded text. `Cardinality` is used for zero-capable source lengths,
-character offsets, byte offsets, and UTF-8 sequence widths. `Number` is reserved
-for genuinely positive whole-number meanings; this slice currently needs no
-such programmer-facing value. `±Number` is likewise not used merely to disguise
-raw ABI integers. Source octets are named `Source_byte` and remain raw bytes
-inside the decoder; `Bits8` is only that boundary type's compiler
-representation. UTF-8 byte ranges are named, and the exceptional bounds are
-documented where they prevent overlong encodings, surrogate values, or values
-beyond U+10FFFF.
+ordinary decoded text. At the exact compiler revision accepted by this slice,
+`Number` is the nonnegative whole-number spelling and is used for source
+lengths, character offsets, byte offsets, and UTF-8 sequence widths. Source
+octets are named `Source_byte` and remain raw bytes inside the decoder; `Bits8`
+is only that boundary type's compiler representation. UTF-8 byte ranges are
+named, and the exceptional bounds are documented where they prevent overlong
+encodings, surrogate values, or values beyond U+10FFFF. Raw ABI integers remain
+raw at the Unix boundary rather than being renamed merely for appearance.
 
 The readable program entry remains in top-level `Ish.idric`: receive source,
 understand an incantation, and cast it. Source receipt, understanding, casting,

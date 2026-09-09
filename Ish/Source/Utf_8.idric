@@ -54,13 +54,13 @@ four_byte_leader_first = 240
 four_byte_leader_last : Source_byte
 four_byte_leader_last = 244
 
-two_byte_sequence_width : Cardinality
+two_byte_sequence_width : Number
 two_byte_sequence_width = 2
 
-three_byte_sequence_width : Cardinality
+three_byte_sequence_width : Number
 three_byte_sequence_width = 3
 
-four_byte_sequence_width : Cardinality
+four_byte_sequence_width : Number
 four_byte_sequence_width = 4
 
 -- F0 needs a higher second byte to reject an overlong four-byte encoding.
@@ -96,7 +96,7 @@ valid_second_of_four leader second =
 
 export
 first_invalid_utf8 :
-  Cardinality → List Source_byte → Maybe Source_decoding_issue
+  Number → List Source_byte → Maybe Source_decoding_issue
 first_invalid_utf8 offset [] = Nothing
 first_invalid_utf8 offset (first :: rest) =
   if first <= ascii_last

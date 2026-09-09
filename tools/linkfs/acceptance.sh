@@ -47,12 +47,12 @@ expected=$(printf '231\n232\n240')
 }
 
 # `from` and `to` are derived directly from links.tsv and point to fragments.
-[ "$(cat "$state/view/from/231/next/232/text")" = beta ]
-[ "$(cat "$state/view/to/232/next/231/text")" = alpha ]
-[ "$(cat "$state/view/from/231/citation/paper-a/text")" = paper ]
-[ "$(cat "$state/view/to/paper-a/citation/231/text")" = alpha ]
+[ "$(cat "$state/cauldron/from/231/next/232/text")" = beta ]
+[ "$(cat "$state/cauldron/to/232/next/231/text")" = alpha ]
+[ "$(cat "$state/cauldron/from/231/citation/paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/to/paper-a/citation/231/text")" = alpha ]
 
-# Arbitrary Cauldron-style projections are independent of link kinds.
+# Arbitrary Cauldron projections are independent of link kinds.
 sh "$program" index "$state" authors/Example_Author paper-a fragments/paper-a
 sh "$program" index "$state" titles 'An Example Paper' fragments/paper-a
 sh "$program" index "$state" arxiv/math.HO paper-a fragments/paper-a
@@ -62,28 +62,28 @@ sh "$program" index "$state" pmi/example-term 000001-paper-a fragments/paper-a
 sh "$program" index "$state" lsi/component-001 000001-paper-a fragments/paper-a
 sh "$program" index "$state" bm25/example-query 000001-paper-a fragments/paper-a
 
-[ "$(cat "$state/view/authors/Example_Author/paper-a/text")" = paper ]
-[ "$(cat "$state/view/titles/An Example Paper/text")" = paper ]
-[ "$(cat "$state/view/arxiv/math.HO/paper-a/text")" = paper ]
-[ "$(cat "$state/view/themes/Example_Theme/paper-a/text")" = paper ]
-[ "$(cat "$state/view/tf-idf/example-term/000001-paper-a/text")" = paper ]
-[ "$(cat "$state/view/pmi/example-term/000001-paper-a/text")" = paper ]
-[ "$(cat "$state/view/lsi/component-001/000001-paper-a/text")" = paper ]
-[ "$(cat "$state/view/bm25/example-query/000001-paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/authors/Example_Author/paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/titles/An Example Paper/text")" = paper ]
+[ "$(cat "$state/cauldron/arxiv/math.HO/paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/themes/Example_Theme/paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/tf-idf/example-term/000001-paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/pmi/example-term/000001-paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/lsi/component-001/000001-paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/bm25/example-query/000001-paper-a/text")" = paper ]
 
 # Destroy every symlink projection and reconstruct it from the two durable tables.
-rm -rf "$state/view"
-mkdir "$state/view"
+rm -rf "$state/cauldron"
+mkdir "$state/cauldron"
 sh "$program" rebuild "$state"
 
-[ "$(cat "$state/view/from/231/next/232/text")" = beta ]
-[ "$(cat "$state/view/to/paper-a/citation/231/text")" = alpha ]
-[ "$(cat "$state/view/authors/Example_Author/paper-a/text")" = paper ]
-[ "$(cat "$state/view/bm25/example-query/000001-paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/from/231/next/232/text")" = beta ]
+[ "$(cat "$state/cauldron/to/paper-a/citation/231/text")" = alpha ]
+[ "$(cat "$state/cauldron/authors/Example_Author/paper-a/text")" = paper ]
+[ "$(cat "$state/cauldron/bm25/example-query/000001-paper-a/text")" = paper ]
 
 # Reassigning one arbitrary index key replaces its projection and durable row.
 sh "$program" index "$state" themes/Example_Theme paper-a fragments/240
-[ "$(cat "$state/view/themes/Example_Theme/paper-a/text")" = gamma ]
+[ "$(cat "$state/cauldron/themes/Example_Theme/paper-a/text")" = gamma ]
 [ "$(awk -F '\t' '$1 == "themes/Example_Theme" && $2 == "paper-a" { count++ } END { print count + 0 }' "$state/indexes.tsv")" -eq 1 ]
 
 # init is non-destructive once the tables exist.

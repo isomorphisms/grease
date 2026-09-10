@@ -6,7 +6,7 @@ import System.File
 
 import Ish.Failure
 import Ish.Source.Diagnostic
-import Ish.Source.Meaning
+import public Ish.Source.Meaning
 import Ish.Source.Utf_8
 
 -- Buffer sizes are inherited machine integers at the library boundary. A

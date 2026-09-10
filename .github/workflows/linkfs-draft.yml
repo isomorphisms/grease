@@ -19,3 +19,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Grease filesystem link/index acceptance
         run: sh tools/linkfs/acceptance.sh
+      - name: IB-shaped strand acceptance
+        run: sh tools/linkfs/ib-shape-acceptance.sh

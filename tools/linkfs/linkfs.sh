@@ -11,7 +11,7 @@ fail() {
 }
 
 usage() {
-  fail "usage: $program_name init ROOT | link ROOT FROM KIND TO | index ROOT INDEX_PATH ENTRY TARGET | rebuild ROOT | from ROOT FRAGMENT [KIND] | to ROOT FRAGMENT [KIND] | strand ROOT START KIND"
+  fail "usage: $program_name init ROOT | link ROOT FROM KIND TO | links ROOT | index ROOT INDEX_PATH ENTRY TARGET | rebuild ROOT | from ROOT FRAGMENT [KIND] | to ROOT FRAGMENT [KIND] | strand ROOT START KIND"
 }
 
 safe_field() {
@@ -98,7 +98,12 @@ materialize_index_in() {
   temporary="$directory/.${entry}.tmp.$$"
   rm -f "$temporary"
   ln -s "$link_target" "$temporary"
-  mv -f "$temporary" "$directory/$entry"
+
+  # Plain `mv temporary entry` treats an existing symlink to a directory as a
+  # directory destination on GNU systems. Remove the rebuildable projection
+  # first so replacement means replacement on both GNU and small POSIX shells.
+  rm -f "$directory/$entry"
+  mv "$temporary" "$directory/$entry"
 }
 
 materialize_link_in() {
@@ -136,6 +141,40 @@ add_link() {
   safe_component "$to" || fail "TO must be one safe fragment id: $to"
   append_unique "$root/links.tsv" "$(printf '%s\t%s\t%s' "$from" "$kind" "$to")"
   materialize_link_in "$root/cauldron" "$from" "$kind" "$to"
+}
+
+add_links() {
+  root=$1
+  require_state "$root"
+  incoming="$root/.links.incoming.$$"
+  merged="$root/.links.tsv.tmp.$$"
+  : > "$incoming"
+
+  while IFS="$tab" read -r from kind to extra; do
+    [ -n "$from$kind$to${extra-}" ] || continue
+    [ -z "${extra-}" ] || {
+      rm -f "$incoming" "$merged"
+      fail "links input needs exactly three tab-separated fields"
+    }
+    safe_component "$from" || {
+      rm -f "$incoming" "$merged"
+      fail "FROM must be one safe fragment id: $from"
+    }
+    safe_component "$kind" || {
+      rm -f "$incoming" "$merged"
+      fail "KIND must be one safe link name: $kind"
+    }
+    safe_component "$to" || {
+      rm -f "$incoming" "$merged"
+      fail "TO must be one safe fragment id: $to"
+    }
+    printf '%s\t%s\t%s\n' "$from" "$kind" "$to" >> "$incoming"
+  done
+
+  awk '!seen[$0]++' "$root/links.tsv" "$incoming" > "$merged"
+  mv "$merged" "$root/links.tsv"
+  rm -f "$incoming"
+  rebuild "$root"
 }
 
 add_index() {
@@ -180,14 +219,46 @@ rebuild() {
   rm -rf "$root/cauldron.old"
 }
 
+emit_from_projection() {
+  directory=$1
+  kind=$2
+  [ -d "$directory" ] || return 0
+  for edge in "$directory"/*; do
+    [ -L "$edge" ] || continue
+    printf '%s\t%s\n' "$kind" "${edge##*/}"
+  done
+}
+
+emit_to_projection() {
+  directory=$1
+  kind=$2
+  [ -d "$directory" ] || return 0
+  for edge in "$directory"/*; do
+    [ -L "$edge" ] || continue
+    printf '%s\t%s\n' "${edge##*/}" "$kind"
+  done
+}
+
 query_from() {
   root=$1
   fragment=$2
   kind=${3-}
   require_state "$root"
-  awk -F '\t' -v source="$fragment" -v kind="$kind" '
-    $1 == source && (kind == "" || $2 == kind) { print $2 "\t" $3 }
-  ' "$root/links.tsv"
+  safe_component "$fragment" || fail "FRAGMENT must be one safe fragment id: $fragment"
+  [ -z "$kind" ] || safe_component "$kind" || fail "KIND must be one safe link name: $kind"
+  [ -d "$root/cauldron" ] || fail "missing generated link projections: $root/cauldron"
+  base="$root/cauldron/from/$fragment"
+  [ -d "$base" ] || return 0
+
+  if [ -n "$kind" ]; then
+    emit_from_projection "$base/$kind" "$kind"
+    return
+  fi
+
+  for directory in "$base"/*; do
+    [ -d "$directory" ] || continue
+    emit_from_projection "$directory" "${directory##*/}"
+  done
 }
 
 query_to() {
@@ -195,9 +266,21 @@ query_to() {
   fragment=$2
   kind=${3-}
   require_state "$root"
-  awk -F '\t' -v destination="$fragment" -v kind="$kind" '
-    $3 == destination && (kind == "" || $2 == kind) { print $1 "\t" $2 }
-  ' "$root/links.tsv"
+  safe_component "$fragment" || fail "FRAGMENT must be one safe fragment id: $fragment"
+  [ -z "$kind" ] || safe_component "$kind" || fail "KIND must be one safe link name: $kind"
+  [ -d "$root/cauldron" ] || fail "missing generated link projections: $root/cauldron"
+  base="$root/cauldron/to/$fragment"
+  [ -d "$base" ] || return 0
+
+  if [ -n "$kind" ]; then
+    emit_to_projection "$base/$kind" "$kind"
+    return
+  fi
+
+  for directory in "$base"/*; do
+    [ -d "$directory" ] || continue
+    emit_to_projection "$directory" "${directory##*/}"
+  done
 }
 
 make_strand() {
@@ -208,7 +291,7 @@ make_strand() {
 
   # Read the table once. Following the strand happens in awk memory rather
   # than one filesystem lookup per hop. The caller may persist this sequence
-  # under pensive/strands/.
+  # wherever a materialized strand is useful.
   awk -F '\t' -v start="$start" -v wanted="$kind" '
     $2 == wanted {
       if ($1 in next_fragment && next_fragment[$1] != $3) {
@@ -246,6 +329,10 @@ case "$command" in
   link)
     [ "$#" -eq 4 ] || usage
     add_link "$1" "$2" "$3" "$4"
+    ;;
+  links)
+    [ "$#" -eq 1 ] || usage
+    add_links "$1"
     ;;
   index)
     [ "$#" -eq 4 ] || usage

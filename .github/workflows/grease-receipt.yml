@@ -43,9 +43,30 @@ jobs:
       - name: Fix kernel mmap rnd bits
         run: sudo sysctl vm.mmap_rnd_bits=28
 
-      - name: Run and verify the inherited Oils cpp-spec oracle
+      - name: Run inherited Oils cpp-spec oracle
         working-directory: source-worktree
         run: |
           soil/github-actions.sh run-job cpp-spec podman
           test "$(cat _tmp/soil/commit-hash.txt)" = "${{ steps.source_pin.outputs.revision }}"
-          soil/host-shim.sh did-all-succeed cpp-spec
+
+      - name: Print native build diagnostics
+        if: always()
+        working-directory: source-worktree
+        run: |
+          for name in oils-cpp-smoke osh-all ysh-all; do
+            path="_tmp/soil/logs/$name.txt"
+            if test -f "$path"; then
+              echo "===== $path ====="
+              cat "$path"
+            fi
+          done
+
+      - name: Build and run focused libc native tests
+        working-directory: source-worktree
+        run: |
+          ninja _bin/cxx-dbg/cpp/libc_test
+          _bin/cxx-dbg/cpp/libc_test
+
+      - name: Verify inherited cpp-spec result
+        working-directory: source-worktree
+        run: soil/host-shim.sh did-all-succeed cpp-spec

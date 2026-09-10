@@ -9,16 +9,43 @@ jobs:
   cpp-spec:
     runs-on: ubuntu-22.04
     env:
-      REPO_ROOT: ${{ github.workspace }}/source
+      REPO_ROOT: ${{ github.workspace }}/source-worktree
     steps:
       - name: Check out Grease and pinned Oils source
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
+      - name: Verify and record the source pin
+        id: source_pin
+        shell: bash
+        run: |
+          revision=$(git rev-parse HEAD:source)
+          test "$(git -C source rev-parse HEAD)" = "$revision"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+
+      # The inherited container harness mounts an Oils worktree by itself.
+      # A normal submodule has a .git file whose target is outside that mount,
+      # so give the harness an equivalent standalone checkout of the gitlink.
+      - name: Check out the pinned source as a standalone worktree
+        uses: actions/checkout@v4
+        with:
+          repository: isomorphisms/oils
+          ref: ${{ steps.source_pin.outputs.revision }}
+          path: source-worktree
+          persist-credentials: false
+
+      - name: Verify the standalone source revision
+        shell: bash
+        run: |
+          test "$(git -C source-worktree rev-parse HEAD)" = "${{ steps.source_pin.outputs.revision }}"
+
       - name: Fix kernel mmap rnd bits
         run: sudo sysctl vm.mmap_rnd_bits=28
 
-      - name: Run inherited Oils cpp-spec oracle
-        working-directory: source
-        run: soil/github-actions.sh run-job cpp-spec podman
+      - name: Run and verify the inherited Oils cpp-spec oracle
+        working-directory: source-worktree
+        run: |
+          soil/github-actions.sh run-job cpp-spec podman
+          test "$(cat _tmp/soil/commit-hash.txt)" = "${{ steps.source_pin.outputs.revision }}"
+          soil/host-shim.sh did-all-succeed cpp-spec

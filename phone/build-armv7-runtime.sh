@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 source_tree=${1:?usage: build-armv7-runtime.sh SOURCE_TREE OUTPUT_DIR}
 output_dir=${2:?usage: build-armv7-runtime.sh SOURCE_TREE OUTPUT_DIR}
-api=${ANDROID_API:-24}
+api=${ANDROID_API:-28}
 abi=${ANDROID_ABI:-armeabi-v7a}
 
 case "$abi" in

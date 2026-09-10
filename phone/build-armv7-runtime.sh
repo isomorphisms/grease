@@ -74,6 +74,7 @@ pushd "$source_tree" >/dev/null
 # probes execute target binaries and therefore cannot run while cross-compiling.
 # Source configure in its documented test mode and run only compile-time probes.
 export _OIL_CONFIGURE_TEST=1
+export _OIL_DEV=''
 # shellcheck disable=SC1091
 . ./configure
 FLAG_cxx_for_configure=$cc

@@ -84,10 +84,10 @@ The first request separates four questions:
 - **behavior**: named choices such as append, truncate, close-on-exec, no-follow,
   nonblocking, or synchronous writes.
 
-Creation permissions are named owner/group/others permissions rather than an
-integer `mode_t` bit mask. The Unix adapter may still use `mode_t`; the process
-umask may still restrict the effective mode. Neither fact requires the shell
-layer to expose an unexplained integer.
+Creation reuses Idriç's existing `Permissions` record: user, group, and others
+each carry named read/write/execute modes. The Unix adapter may still lower
+that value to `mode_t`, and the process umask may still restrict the effective
+mode. Neither fact requires the shell layer to expose an unexplained integer.
 
 The request is indexed by whether any opened object is acceptable or the
 operating system must verify that the result is a directory. The result follows
@@ -118,11 +118,12 @@ layer does not expose that integer flag.
 
 ## Errors
 
-The new `System_error` type is the first shared error meaning for this lower
-system layer. An adapter consumes sentinel return values and `errno`, classifies
-common failures when useful, and retains the raw error number, an optional
-symbolic name, and the operating system's explanatory text. A failed C call
-returning `-1` therefore does not become the shell value `-1`.
+The shared `Operating_system_error` type is used by this lower system layer and
+by the existing process-replacement boundary. An adapter consumes sentinel
+return values and `errno`, classifies common failures when useful, and retains
+the raw error number, an optional symbolic name, and the operating system's
+explanatory text. A failed C call returning `-1` therefore does not become the
+shell value `-1`.
 
 This name deliberately avoids `NativeError`: “native” says nothing about what
 failed or which boundary reported it.

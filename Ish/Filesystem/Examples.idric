@@ -1,0 +1,60 @@
+module Ish.Filesystem.Examples
+
+import Ish.Filesystem.Meaning
+import Ish.Filesystem.Request
+
+-- Realistic request values used as a compile-time canary for the filesystem
+-- model. They are meanings only; this module does not perform filesystem IO.
+public export
+temporary_directory_request : Open_request Directory_object
+temporary_directory_request =
+  Open_at
+    (Absolute_location "/tmp")
+    Read
+    Existing_only
+    [Close_on_exec]
+
+public export
+notes_from_working_directory : Open_request Any_object
+notes_from_working_directory =
+  Open_at
+    (Relative_location Working_directory "notes")
+    Read_and_write
+    Existing_only
+    [Close_on_exec]
+
+public export
+notes_copy_hard_link : Hard_link_request
+notes_copy_hard_link =
+  Hard_link
+    (Relative_location Working_directory "notes")
+    Link_named_object
+    (Relative_location Working_directory "notes-copy")
+
+public export
+shortcut_symbolic_link : Symbolic_link_request
+shortcut_symbolic_link =
+  Symbolic_link
+    "../target"
+    (Relative_location Working_directory "shortcut")
+
+public export
+remove_notes_copy : Removal_request
+remove_notes_copy =
+  Remove_at
+    (Relative_location Working_directory "notes-copy")
+    Remove_nondirectory_name
+
+public export
+remove_empty_directory : Removal_request
+remove_empty_directory =
+  Remove_at
+    (Relative_location Working_directory "empty-directory")
+    Remove_directory
+
+-- The result type follows the request: the directory-open request produces a
+-- Directory on success rather than an unrestricted opened-object handle.
+public export
+temporary_directory_result : Type
+temporary_directory_result =
+  request_result $ Open_directory temporary_directory_request

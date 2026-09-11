@@ -1,0 +1,29 @@
+module Ish.System.Error
+
+-- System calls and libc operations often report failure through an exceptional
+-- representation such as -1 plus errno.  That representation is consumed at
+-- the operating-system boundary; shell-facing code receives a named error.
+public export
+data System_error_kind
+  = Interrupted
+  | Permission_denied
+  | No_such_entry
+  | Already_exists
+  | Not_a_directory
+  | Is_a_directory
+  | Invalid_argument
+  | Too_many_open_files
+  | No_space
+  | Read_only_filesystem
+  | Out_of_memory
+  | Not_supported
+  | Unclassified_system_error
+
+-- Keep both a useful classification and the operating system's description.
+-- The raw errno representation may be retained below this value for diagnostics
+-- or adapter tests; it is not smuggled upward as an ordinary shell Number.
+public export
+record System_error where
+  constructor System_error_reported
+  error_kind : System_error_kind
+  error_text : Text

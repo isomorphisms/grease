@@ -94,8 +94,8 @@ operating system must verify that the result is a directory. The result follows
 that index:
 
 ```text
-open any object      -> Open_handle
-open directory       -> Directory
+open any object      → Open_handle
+open directory       → Directory
 ```
 
 This is a small useful dependent relationship. It does not try to prove resource
@@ -120,9 +120,9 @@ layer does not expose that integer flag.
 
 The new `System_error` type is the first shared error meaning for this lower
 system layer. An adapter consumes sentinel return values and `errno`, classifies
-common failures when useful, and retains the operating system's explanatory
-text. A failed C call returning `-1` therefore does not become the shell value
-`-1`.
+common failures when useful, and retains the raw error number, an optional
+symbolic name, and the operating system's explanatory text. A failed C call
+returning `-1` therefore does not become the shell value `-1`.
 
 This name deliberately avoids `NativeError`: “native” says nothing about what
 failed or which boundary reported it.
@@ -135,11 +135,11 @@ trees, copy-on-write structures, or something else:
 
 ```text
 namespace name
-    -> filesystem object
-    -> logical byte range
-    -> allocation description
-    -> storage blocks / clusters / extents
-    -> storage device
+    → filesystem object
+    → logical byte range
+    → allocation description
+    → storage blocks / clusters / extents
+    → storage device
 ```
 
 That lower allocation model may become useful later, especially for inspection,
@@ -151,8 +151,8 @@ making every ordinary shell pathname pretend to be a disk address.
 The following is design notation, not accepted ish parser syntax yet:
 
 ```text
-directory <- open directory "/tmp"
-file <- open "notes" at directory for reading and writing
+directory ← open directory "/tmp"
+file ← open "notes" at directory for reading and writing
 
 link "notes" at directory
     to "notes-copy" at directory

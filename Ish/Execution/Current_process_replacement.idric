@@ -50,7 +50,11 @@ replace_current_process replacement = do
   let error_text = strerror foreign_error
   pure $
     Could_not_replace_process replacement $
-      Operating_system_error_reported error_text
+      Operating_system_error_reported
+        Unclassified_operating_system_error
+        foreign_error
+        Nothing
+        error_text
 
 export
 replacement_failure_text : Process_replacement_failure → Text
@@ -60,7 +64,7 @@ replacement_failure_text
       (Source_from_file (Source_at_path source_path) _)
       (Exact_executable_path path span)
       _)
-    (Operating_system_error_reported error_text)) =
+    (Operating_system_error_reported _ _ _ error_text)) =
     "could not cast incantation from " ++ show source_path ++
     ": could not replace ish with executable " ++ show path ++
     " at " ++ show span ++ ": " ++ error_text

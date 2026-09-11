@@ -1,5 +1,7 @@
 module Ish.Filesystem.Meaning
 
+import public System.File.Permissions
+
 -- A Unix descriptor is an adapter representation for an opened kernel object.
 -- Keep it below the filesystem meanings so ordinary ish source does not pass
 -- naked signed integers as handles.
@@ -9,7 +11,7 @@ record File_descriptor where
   descriptor_representation : Int
 
 -- Opening without a directory requirement may yield a regular file, directory,
--- device, pipe endpoint, or another filesystem object.  Requiring a directory
+-- device, pipe endpoint, or another filesystem object. Requiring a directory
 -- gives later *at operations a directory-relative base that has been checked by
 -- the operating system rather than guessed from path text.
 public export
@@ -30,7 +32,7 @@ public export
 Directory : Type
 Directory = Opened Directory_object
 
--- A relative location needs an explicit resolution base.  The working
+-- A relative location needs an explicit resolution base. The working
 -- directory is process state; an opened directory remains a stable handle even
 -- if namespace names around it later change.
 public export
@@ -39,7 +41,7 @@ data Directory_reference
   | At_directory Directory
 
 -- This is a namespace location, not a memory address and not a disk block.
--- Absolute path text is resolved from the filesystem root.  Relative path text
+-- Absolute path text is resolved from the filesystem root. Relative path text
 -- is resolved from the supplied directory reference.
 public export
 data Filesystem_location
@@ -48,41 +50,22 @@ data Filesystem_location
 
 public export
 data File_access
-  = Read
-  | Write
+  = Read_only
+  | Write_only
   | Read_and_write
 
--- Creation permissions are named rather than presented as an integer mode.
--- The process umask can still restrict the effective permissions at creation.
-public export
-data File_permission
-  = Owner_read
-  | Owner_write
-  | Owner_execute
-  | Group_read
-  | Group_write
-  | Group_execute
-  | Others_read
-  | Others_write
-  | Others_execute
-  | Set_user_id
-  | Set_group_id
-  | Sticky
-
-public export
-record File_permissions where
-  constructor Permissions
-  permission_entries : List File_permission
-
+-- Reuse Idriç's existing semantic Permissions record: user, group, and others
+-- each carry named Read/Write/Execute modes. The Unix adapter may still lower
+-- that value to mode_t, and the process umask can restrict the effective mode.
 -- Presence and creation are separated so permissions cannot be supplied to an
 -- ordinary existing-only open where they have no meaning.
 public export
 data File_presence
   = Existing_only
-  | Create_if_missing File_permissions
-  | Create_new File_permissions
+  | Create_if_missing Permissions
+  | Create_new Permissions
 
--- These are semantic names for useful open behaviors.  The Unix adapter maps
+-- These are semantic names for useful open behaviors. The Unix adapter maps
 -- them to O_* constants; shell code does not combine integer bit masks.
 public export
 data Open_behavior

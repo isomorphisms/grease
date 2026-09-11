@@ -59,10 +59,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android SDK and pinned NDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'ndk;27.3.13750724'
+          packages: ''
+
+      - name: Install pinned Android NDK
+        shell: bash
+        run: sdkmanager "ndk;$ANDROID_NDK_VERSION"
 
       - name: Extract generated native source bundle
         id: native_source
@@ -81,8 +85,9 @@ jobs:
         env:
           GREASE_SOURCE_SHA: ${{ steps.source_pin.outputs.revision }}
           GREASE_PACKAGING_SHA: ${{ github.sha }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.ANDROID_NDK_VERSION }}
         run: |
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/$ANDROID_NDK_VERSION"
+          test -d "$ANDROID_NDK_HOME"
           bash phone/build-armv7-runtime.sh \
             "${{ steps.native_source.outputs.dir }}" \
             build/package
@@ -90,7 +95,9 @@ jobs:
       - name: Verify pinned NDK receipt
         shell: bash
         run: |
-          grep -Fx "ndk_revision\t$ANDROID_NDK_VERSION" build/package/receipts/build.tsv
+          awk -F '\t' -v expected="$ANDROID_NDK_VERSION" \
+            '$1 == "ndk_revision" { found = 1; if ($2 != expected) exit 1 } END { if (!found) exit 1 }' \
+            build/package/receipts/build.tsv
 
       - name: Package deterministic phone artifact
         id: package

@@ -1,0 +1,63 @@
+#!/usr/bin/env ysh
+
+# Representative IB/Pensieve proof: work directly with a mapped index page.
+# The acceptance workflow prepares a 4096-byte file whose first eight bytes are
+# "fragment" and verifies that this program persists "pensieve" through mmap.
+
+if (len(ARGV) !== 1) {
+  echo 'usage: ib-mapped-index.ysh INDEX_FILE'
+  exit 2
+}
+
+var opened = native.openat(native.cwd, ARGV[0]; flags=['read-write'])
+if (not opened.ok) {
+  echo 'openat failed'
+  exit 3
+}
+var index_file = opened.value
+
+var mapped = native.mmap(4096, index_file;
+                         protection=['read', 'write'], flags=['shared'])
+if (not mapped.ok) {
+  echo 'mmap failed'
+  exit 4
+}
+var index_page = mapped.value
+
+var before = native.readMapping(index_page, 0, 8)
+if (not before.ok or before.value !== 'fragment') {
+  echo 'mapped input did not contain fragment'
+  exit 5
+}
+
+var wrote = native.writeMapping(index_page, 0, 'pensieve')
+if (not wrote.ok) {
+  echo 'mapped write failed'
+  exit 6
+}
+
+var synced = native.msync(index_page; flags=['sync'])
+if (not synced.ok) {
+  echo 'msync failed'
+  exit 7
+}
+
+var after = native.readMapping(index_page, 0, 8)
+if (not after.ok or after.value !== 'pensieve') {
+  echo 'mapped value did not change to pensieve'
+  exit 8
+}
+
+var unmapped = native.munmap(index_page)
+if (not unmapped.ok) {
+  echo 'munmap failed'
+  exit 9
+}
+
+var closed = native.close(index_file)
+if (not closed.ok) {
+  echo 'close failed'
+  exit 10
+}
+
+echo 'IB mapped-index proof passed'

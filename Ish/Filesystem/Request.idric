@@ -1,0 +1,62 @@
+module Ish.Filesystem.Request
+
+import Ish.Filesystem.Meaning
+import Ish.System.Error
+
+-- linkat normally hard-links the object named by the source location.  Its
+-- AT_SYMLINK_FOLLOW mode instead follows a final symbolic link first.  Keep
+-- that choice named rather than exposing a numeric flag.
+public export
+data Hard_link_source
+  = Link_named_object
+  | Follow_source_symbolic_link
+
+public export
+record Hard_link_request where
+  constructor Hard_link
+  hard_link_source : Filesystem_location
+  hard_link_source_resolution : Hard_link_source
+  hard_link_destination : Filesystem_location
+
+-- A symbolic link stores target text.  The target need not exist and therefore
+-- is deliberately not represented as a resolved Filesystem_location.
+public export
+record Symbolic_link_request where
+  constructor Symbolic_link
+  symbolic_link_target : Text
+  symbolic_link_location : Filesystem_location
+
+-- unlinkat distinguishes ordinary namespace removal from directory removal.
+-- The adapter maps Remove_directory to AT_REMOVEDIR.
+public export
+data Removal_kind
+  = Remove_nondirectory_name
+  | Remove_directory
+
+public export
+record Removal_request where
+  constructor Remove_at
+  removal_location : Filesystem_location
+  removal_kind : Removal_kind
+
+-- This is the small filesystem vocabulary corresponding to the current
+-- openat/linkat/symlinkat/unlinkat experiment.  The public names describe what
+-- the shell means; the Unix adapter remains free to use the exact libc names.
+public export
+data Filesystem_request
+  = Open_object (Open_request Any_object)
+  | Open_directory (Open_request Directory_object)
+  | Make_hard_link Hard_link_request
+  | Make_symbolic_link Symbolic_link_request
+  | Remove_name Removal_request
+
+-- Results depend on the requested operation.  Failures are System_error values,
+-- never sentinel integers.  Link creation and removal return Unit because the
+-- successful operation has no additional shell value to report.
+public export
+request_result : Filesystem_request → Type
+request_result (Open_object _) = Either System_error Open_handle
+request_result (Open_directory _) = Either System_error Directory
+request_result (Make_hard_link _) = Either System_error ()
+request_result (Make_symbolic_link _) = Either System_error ()
+request_result (Remove_name _) = Either System_error ()

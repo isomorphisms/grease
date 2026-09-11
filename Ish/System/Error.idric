@@ -1,8 +1,9 @@
 module Ish.System.Error
 
 -- System calls and libc operations often report failure through an exceptional
--- representation such as -1 plus errno.  That representation is consumed at
--- the operating-system boundary; shell-facing code receives a named error.
+-- representation such as -1 plus errno. That sentinel representation is
+-- consumed at the operating-system boundary; shell-facing code receives a
+-- named error value instead.
 public export
 data System_error_kind
   = Interrupted
@@ -19,11 +20,14 @@ data System_error_kind
   | Not_supported
   | Unclassified_system_error
 
--- Keep both a useful classification and the operating system's description.
--- The raw errno representation may be retained below this value for diagnostics
--- or adapter tests; it is not smuggled upward as an ordinary shell Number.
+-- Retain the useful operating-system evidence without confusing it with an
+-- operation's successful result. The numeric errno stays an ABI representation,
+-- not an ordinary shell Number. Some platforms or errors may not have a useful
+-- symbolic name, so that field is optional.
 public export
 record System_error where
   constructor System_error_reported
   error_kind : System_error_kind
+  error_number_representation : Int
+  error_symbol : Maybe Text
   error_text : Text

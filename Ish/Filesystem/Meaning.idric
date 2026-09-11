@@ -1,0 +1,105 @@
+module Ish.Filesystem.Meaning
+
+-- A Unix descriptor is an adapter representation for an opened kernel object.
+-- Keep it below the filesystem meanings so ordinary ish source does not pass
+-- naked signed integers as handles.
+public export
+record File_descriptor where
+  constructor Descriptor
+  descriptor_representation : Int
+
+-- Opening without a directory requirement may yield a regular file, directory,
+-- device, pipe endpoint, or another filesystem object.  Requiring a directory
+-- gives later *at operations a directory-relative base that has been checked by
+-- the operating system rather than guessed from path text.
+public export
+data Opened_kind
+  = Any_object
+  | Directory_object
+
+public export
+data Opened : Opened_kind → Type where
+  Opened_object : File_descriptor → Opened Any_object
+  Opened_directory : File_descriptor → Opened Directory_object
+
+public export
+Open_handle : Type
+Open_handle = Opened Any_object
+
+public export
+Directory : Type
+Directory = Opened Directory_object
+
+-- A relative location needs an explicit resolution base.  The working
+-- directory is process state; an opened directory remains a stable handle even
+-- if namespace names around it later change.
+public export
+data Directory_reference
+  = Working_directory
+  | At_directory Directory
+
+-- This is a namespace location, not a memory address and not a disk block.
+-- Absolute path text is resolved from the filesystem root.  Relative path text
+-- is resolved from the supplied directory reference.
+public export
+data Filesystem_location
+  = Absolute_location Text
+  | Relative_location Directory_reference Text
+
+public export
+data File_access
+  = Read
+  | Write
+  | Read_and_write
+
+-- Creation permissions are named rather than presented as an integer mode.
+-- The process umask can still restrict the effective permissions at creation.
+public export
+data File_permission
+  = Owner_read
+  | Owner_write
+  | Owner_execute
+  | Group_read
+  | Group_write
+  | Group_execute
+  | Others_read
+  | Others_write
+  | Others_execute
+  | Set_user_id
+  | Set_group_id
+  | Sticky
+
+public export
+record File_permissions where
+  constructor Permissions
+  permission_entries : List File_permission
+
+-- Presence and creation are separated so permissions cannot be supplied to an
+-- ordinary existing-only open where they have no meaning.
+public export
+data File_presence
+  = Existing_only
+  | Create_if_missing File_permissions
+  | Create_new File_permissions
+
+-- These are semantic names for useful open behaviors.  The Unix adapter maps
+-- them to O_* constants; shell code does not combine integer bit masks.
+public export
+data Open_behavior
+  = Append_writes
+  | Truncate_existing
+  | Close_on_exec
+  | Do_not_follow_final_symbolic_link
+  | Nonblocking
+  | Synchronous_writes
+  | Synchronous_data_writes
+
+-- The kind index says whether the caller merely wants an opened object or needs
+-- the operating system to verify that the opened object is a directory.
+public export
+record Open_request (kind : Opened_kind) where
+  constructor Open_at
+  open_location : Filesystem_location
+  open_access : File_access
+  open_presence : File_presence
+  open_behaviors : List Open_behavior

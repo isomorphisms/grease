@@ -24,6 +24,23 @@ notes_from_working_directory =
     [Close_on_exec]
 
 public export
+cache_file_permissions : Permissions
+cache_file_permissions =
+  MkPermissions
+    [FileMode.Read, FileMode.Write]
+    [FileMode.Read]
+    []
+
+public export
+new_cache_file : Open_request Any_object
+new_cache_file =
+  Open_at
+    (Relative_location Working_directory "cache")
+    Write_only
+    (Create_new cache_file_permissions)
+    [Close_on_exec]
+
+public export
 notes_copy_hard_link : Hard_link_request
 notes_copy_hard_link =
   Hard_link

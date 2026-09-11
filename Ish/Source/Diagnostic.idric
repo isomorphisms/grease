@@ -1,18 +1,14 @@
 module Ish.Source.Diagnostic
 
-import Ish.Number
 import Ish.Source.Meaning
-import Ish.Text
 
-%default total
-
-public export
+export
 source_issue_text : Source_issue → Text
 source_issue_text (Nul_in_source_at span) =
   "source contains NUL text at " ++ show span ++
   "; Unix process inputs cannot represent NUL"
 
-public export
+export
 decoding_issue_text : Source_decoding_issue → Text
 decoding_issue_text (Invalid_utf8_near_byte byte) =
   "source is not UTF-8 near byte " ++ show byte

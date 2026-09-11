@@ -1,0 +1,16 @@
+module Ish.Cast_incantation
+
+import Ish.Execution.Current_process_replacement
+import Ish.Failure
+import Ish.Source.Meaning
+
+-- Casting is the shell operation. In this first slice it deliberately means
+-- replacing ish with the exact path named by the incantation; it does not yet
+-- search PATH, fork, wait, run a builtin, or construct a pipeline.
+export
+cast_incantation : Incantation → IO ()
+cast_incantation incantation = do
+  failure ← replace_current_process $
+              prepare_process_replacement incantation
+  report_process_replacement_failure_and_exit $
+    replacement_failure_text failure

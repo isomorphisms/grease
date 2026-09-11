@@ -1,0 +1,38 @@
+module Ish.Failure
+
+import System
+import System.File
+
+-- These are shell meanings. Their numeric Unix representations exist only at
+-- the exit boundary below.
+choice shell_failure one_of
+  source_failure Text
+  process_replacement_failure Text
+
+failure_status_representation : shell_failure → Int
+failure_status_representation (source_failure _) = 2
+
+-- 126 is the conventional shell status for finding an incantation but being
+-- unable to enter the program that would enact it.
+failure_status_representation (process_replacement_failure _) = 126
+
+failure_text : shell_failure → Text
+failure_text (source_failure text) = text
+failure_text (process_replacement_failure text) = text
+
+-- Reporting and leaving the shell is distinct from handling an interrupt,
+-- stopping a live process, or receiving a child's structured completion.
+report_failure_and_exit : shell_failure → IO a
+report_failure_and_exit failure = do
+  _ ← fPutStrLn stderr $ "ish: " ++ failure_text failure
+  exitWith $ cast $ failure_status_representation failure
+
+export
+report_source_failure_and_exit : Text → IO a
+report_source_failure_and_exit text =
+  report_failure_and_exit $ source_failure text
+
+export
+report_process_replacement_failure_and_exit : Text → IO a
+report_process_replacement_failure_and_exit text =
+  report_failure_and_exit $ process_replacement_failure text

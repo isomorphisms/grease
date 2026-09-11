@@ -1,0 +1,20 @@
+module Ish.Understand_incantation
+
+import Ish.Failure
+import Ish.Source.Diagnostic
+import Ish.Source.Incantation
+import Ish.Source.Meaning
+
+-- Understanding turns decoded, source-identified text into one incantation.
+-- Rejection and useful incompleteness remain distinct until this noninteractive
+-- runner deliberately reports both and exits.
+export
+understand_incantation : Incantation_source → IO Incantation
+understand_incantation source =
+  case parse_source source of
+    Rejected_source issue ⇒
+      report_source_failure_and_exit $ source_issue_text issue
+    Awaiting_more_source (Awaiting_incantation_name_at span) ⇒
+      report_source_failure_and_exit $
+        "incomplete incantation: expected a name at " ++ show span
+    Parsed_incantation incantation ⇒ pure incantation

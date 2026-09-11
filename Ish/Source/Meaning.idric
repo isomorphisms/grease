@@ -1,11 +1,12 @@
 module Ish.Source.Meaning
 
-import Ish.Number
-import Ish.Text
+-- These meanings are public because later layers must retain and inspect the
+-- source evidence they carry. `public export` is bootstrap visibility
+-- machinery here, below the shell's purpose-level source.
 
-%default total
-
--- A half-open range of characters in already-decoded source text.
+-- A half-open range of characters in already-decoded source text. Zero is a
+-- valid boundary, and Number is the zero-capable whole-number spelling at the
+-- exact compiler revision accepted by this slice.
 public export
 record Source_span where
   constructor Characters_from_until
@@ -16,6 +17,27 @@ public export
 Show Source_span where
   show (Characters_from_until start end) =
     "[" ++ show start ++ "," ++ show end ++ ")"
+
+-- The path is source identity, not arbitrary diagnostic text. It remains
+-- attached to the incantation after the file has been read and decoded.
+public export
+record Source_file_path where
+  constructor Source_at_path
+  source_path_text : Text
+
+-- Text that has passed the source decoder. Keeping this distinct prevents a
+-- caller from presenting undecoded bytes or unrelated text to the parser.
+public export
+record Source_text where
+  constructor Decoded_source
+  decoded_source_text : Text
+
+-- One received source and the stable identity used for diagnostics.
+public export
+record Incantation_source where
+  constructor Source_from_file
+  source_file_path : Source_file_path
+  source_text : Source_text
 
 -- The first source word, retained with its location for interaction and
 -- diagnostics. It has not yet been interpreted as a filesystem path.
@@ -37,6 +59,7 @@ record Input where
 public export
 record Incantation where
   constructor Named_incantation_at
+  incantation_source : Incantation_source
   incantation_span : Source_span
   incantation_name : Incantation_name
   incantation_inputs : List Input

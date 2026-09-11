@@ -2,6 +2,12 @@
 
 Research report, 7 September 2026
 
+Status: background evidence, not the current implementation receipt. The
+purpose-level decisions in `docs/000-one-command.md`,
+`docs/001-one-incantation-design.md`, and the maintained Idriç source supersede
+this report where they differ. Commit links below identify the historical
+snapshot researched; they do not claim that snapshot is the current branch.
+
 ## Scope and finding
 
 This report treats `ish` as a shell-design investigation that may put useful pressure on Idriç. It does not assume facilities that Idriç does not have, and it does not use Adriç, Odriç/0driç, or Oodriç as architectural answers. The older `ish` prose that couples the shell to Odriç is project history, not present direction.

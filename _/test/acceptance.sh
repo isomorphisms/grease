@@ -2,11 +2,28 @@
 set -eu
 
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+top_level_source=$repo_root/../Ish.idric
 temporary=$repo_root/test/tmp
 runner=$repo_root/build/exec/ish
 probe=$repo_root/test/probe
 
 mkdir -p "$temporary"
+
+if grep -E '^[[:space:]]*(%default|covering)|\bstop\b|Ish\.(Number|Text)' \
+  "$top_level_source" >/dev/null; then
+    printf '%s\n' 'top-level shell source exposes compiler or failure machinery' >&2
+    exit 1
+fi
+
+if grep -R -E '^[[:space:]]*(%default[[:space:]]+total|covering)|Ish\.(Number|Text)' \
+  "$repo_root/../Ish" --include='*.idric' >/dev/null; then
+    printf '%s\n' 'maintained Idriç source contains a superseded compiler or vocabulary layer' >&2
+    exit 1
+fi
+
+grep -F 'source ← receive_incantation_source' "$top_level_source" >/dev/null
+grep -F 'incantation ← understand_incantation source' "$top_level_source" >/dev/null
+grep -F 'cast_incantation incantation' "$top_level_source" >/dev/null
 
 source_file=$temporary/one-incantation.ish
 actual=$temporary/actual
@@ -19,7 +36,7 @@ incoming=$temporary/incoming
 
 cp "$probe" "$literal_probe"
 printf '%s %s %s\n' "$literal_probe" 'café' '$HOME;*' >"$source_file"
-printf '%s' 'incoming data' >"$incoming"
+printf '\000\377Z' >"$incoming"
 
 trace_execve=false
 if command -v strace >/dev/null 2>&1 &&
@@ -60,8 +77,8 @@ environment[LD_LIBRARY_PATH]=9:caller-ld
 environment[DYLD_LIBRARY_PATH]=11:caller-dyld
 environment[IDRIS2_INC_SRC]=13:caller-source
 environment[__ISH_LAUNCH_ENVIRONMENT]=13:caller-marker
-incoming=13:incoming data
 EOF
+printf 'incoming=3:\000\377Z\n' >>"$expected"
 
 cmp "$expected" "$actual"
 test ! -s "$diagnostic"
@@ -83,7 +100,7 @@ set -e
 
 test "$missing_status" -eq 126
 test ! -s "$actual"
-grep -F 'execve failed for "/definitely/not/present/ish-probe" at [0,33)' \
+grep -F "could not cast incantation from \"$missing_source\": could not replace ish with executable \"/definitely/not/present/ish-probe\" at [0,33)" \
   "$diagnostic" >/dev/null
 
 path_source=$temporary/no-path-search.ish
@@ -97,7 +114,8 @@ set -e
 
 test "$path_status" -eq 126
 test ! -s "$actual"
-grep -F 'execve failed for "probe" at [0,5)' "$diagnostic" >/dev/null
+grep -F "could not cast incantation from \"$path_source\": could not replace ish with executable \"probe\" at [0,5)" \
+  "$diagnostic" >/dev/null
 
 invalid_source=$temporary/nul.ish
 printf 'bad\000name input\n' >"$invalid_source"

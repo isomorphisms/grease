@@ -1,0 +1,48 @@
+module Ish.Receive_incantation
+
+import Data.Buffer
+import System
+import System.File
+
+import Ish.Failure
+import Ish.Source.Diagnostic
+import public Ish.Source.Meaning
+import Ish.Source.Utf_8
+
+-- Buffer sizes are inherited machine integers at the library boundary. A
+-- source byte count can be zero, so the shell converts it to Number and uses
+-- structural recursion rather than Data.Buffer's covering-only list conversion.
+source_bytes_from :
+  Buffer → Number → List Source_byte → IO (List Source_byte)
+source_bytes_from source_buffer 0 found = pure found
+source_bytes_from source_buffer (S previous_offset) found = do
+  source_byte ← getBits8 source_buffer $ cast previous_offset
+  source_bytes_from source_buffer previous_offset $ source_byte :: found
+
+receive_source_file : Source_file_path → IO Incantation_source
+receive_source_file path = do
+  let Source_at_path path_text = path
+  Right source_buffer ← createBufferFromFile path_text
+    | Left error ⇒
+        report_source_failure_and_exit $
+          "could not read source " ++ show path_text ++ ": " ++ show error
+  source_size_representation ← rawSize source_buffer
+  let source_size : Number = cast source_size_representation
+  source_bytes ← source_bytes_from source_buffer source_size []
+  case first_invalid_utf8 0 source_bytes of
+    Just issue ⇒
+      report_source_failure_and_exit $ decoding_issue_text issue
+    Nothing ⇒ pure ()
+  decoded_text ← getString source_buffer 0 source_size_representation
+  pure $ Source_from_file path $ Decoded_source decoded_text
+
+-- This executable boundary receives exactly one source file and returns the
+-- source-identified meaning consumed by the understanding layer.
+export
+receive_incantation_source : IO Incantation_source
+receive_incantation_source = do
+  process_inputs ← getArgs
+  case process_inputs of
+    [_, source_path] ⇒ receive_source_file $ Source_at_path source_path
+    _ ⇒
+      report_source_failure_and_exit "usage: ish SOURCE-FILE"

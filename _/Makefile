@@ -3,7 +3,7 @@ CHEZ ?= chezscheme
 CC ?= cc
 IDRIC_SOURCES := $(shell find src/Ish.idric src/Ish -type f -name '*.idric')
 
-.PHONY: all check test clean
+.PHONY: all check test acceptance clean
 
 all: build/exec/ish
 
@@ -25,6 +25,11 @@ check: libish_runtime.so
 test: build/exec/ish test/probe
 	sh test/acceptance.sh
 
+acceptance: clean
+	$(MAKE) test
+	$(MAKE) clean
+
 clean:
 	$(IDRIC) --clean ish.ipkg
-	rm -f libish_runtime.so test/probe
+	rm -rf build test/tmp
+	rm -f libish_runtime.so runtime/*.o test/probe

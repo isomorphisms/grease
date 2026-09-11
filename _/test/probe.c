@@ -5,6 +5,9 @@
 static const int observed_process_contract_status = 73;
 static const int incoming_data_could_not_be_read_status = 74;
 
+/* Larger than the fixture so unexpected trailing bytes remain observable. */
+enum { incoming_probe_capacity = 128 };
+
 static void print_environment(const char *name) {
     const char *value = getenv(name);
     if (value == NULL) {
@@ -31,7 +34,7 @@ int main(int count, char **values) {
     print_environment("IDRIS2_INC_SRC");
     print_environment("__ISH_LAUNCH_ENVIRONMENT");
 
-    unsigned char incoming[128];
+    unsigned char incoming[incoming_probe_capacity];
     size_t incoming_count = fread(incoming, 1, sizeof(incoming), stdin);
     if (ferror(stdin)) {
         return incoming_data_could_not_be_read_status;

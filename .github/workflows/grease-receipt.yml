@@ -64,6 +64,9 @@ jobs:
       - name: Build and run focused libc native tests
         working-directory: source-worktree
         run: |
+          # SOIL's container writes build outputs as its own uid.  Hand only the
+          # build/output directories back to the host runner before host ninja.
+          sudo chown -R "$(id -u):$(id -g)" _build _bin
           ninja _bin/cxx-dbg/cpp/libc_test
           _bin/cxx-dbg/cpp/libc_test
 

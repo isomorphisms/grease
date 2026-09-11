@@ -1,0 +1,136 @@
+name: grease-tablet-aarch64-runtime
+
+on:
+  push:
+    branches: ['tablet/aarch64-runtime']
+  pull_request:
+    paths:
+      - 'tablet/**'
+      - '.github/workflows/tablet-aarch64-runtime.yml'
+      - 'source'
+
+permissions:
+  contents: write
+
+jobs:
+  build-aarch64-runtime:
+    runs-on: ubuntu-22.04
+    env:
+      REPO_ROOT: ${{ github.workspace }}/source-worktree
+      ANDROID_API: '28'
+      ANDROID_ABI: arm64-v8a
+    steps:
+      - name: Check out Grease and pinned Oils source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify and record exact Grease source pin
+        id: source_pin
+        shell: bash
+        run: |
+          revision=$(git rev-parse HEAD:source)
+          test "$(git -C source rev-parse HEAD)" = "$revision"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+
+      - name: Check out pinned source as standalone worktree
+        uses: actions/checkout@v4
+        with:
+          repository: isomorphisms/oils
+          ref: ${{ steps.source_pin.outputs.revision }}
+          path: source-worktree
+          persist-credentials: false
+
+      - name: Verify standalone source revision
+        shell: bash
+        run: |
+          test "$(git -C source-worktree rev-parse HEAD)" = "${{ steps.source_pin.outputs.revision }}"
+
+      - name: Fix kernel mmap rnd bits
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Generate native C++ source bundle from current Grease
+        working-directory: source-worktree
+        shell: bash
+        run: |
+          soil/github-actions.sh run-job cpp-tarball podman
+          test "$(cat _tmp/soil/commit-hash.txt)" = "${{ steps.source_pin.outputs.revision }}"
+          soil/host-shim.sh did-all-succeed cpp-tarball
+          test -f _release/oils-for-unix.tar
+
+      - name: Extract generated native source bundle
+        id: native_source
+        shell: bash
+        run: |
+          rm -rf build/native-source build/package
+          mkdir -p build/native-source build/package
+          tar -xf source-worktree/_release/oils-for-unix.tar -C build/native-source
+          source_dir=$(find build/native-source -mindepth 1 -maxdepth 1 -type d -name 'oils-for-unix-*' -print -quit)
+          test -n "$source_dir"
+          test -x "$source_dir/_build/oils.sh"
+          echo "dir=$source_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Cross-build AArch64 Android runtime
+        shell: bash
+        env:
+          GREASE_SOURCE_SHA: ${{ steps.source_pin.outputs.revision }}
+          GREASE_PACKAGING_SHA: ${{ github.sha }}
+        run: |
+          bash tablet/build-aarch64-runtime.sh \
+            "${{ steps.native_source.outputs.dir }}" \
+            build/package
+
+      - name: Package deterministic tablet artifact
+        id: package
+        shell: bash
+        run: |
+          test -x build/package/bin/grease
+          test -x build/package/bin/ysh
+          tar \
+            --sort=name \
+            --mtime='UTC 2020-01-01' \
+            --owner=0 --group=0 --numeric-owner \
+            -C build/package -czf build/grease-aarch64-termux.tar.gz .
+          sha256=$(sha256sum build/grease-aarch64-termux.tar.gz | awk '{print $1}')
+          printf '%s  grease-aarch64-termux.tar.gz\n' "$sha256" > build/grease-aarch64-termux.tar.gz.sha256
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+          echo "artifact SHA-256 $sha256"
+
+      - name: Upload exact build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: grease-aarch64-termux-${{ github.sha }}
+          path: |
+            build/grease-aarch64-termux.tar.gz
+            build/grease-aarch64-termux.tar.gz.sha256
+            build/package/receipts/
+          if-no-files-found: error
+
+      - name: Publish immutable tablet prerelease
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source_pin.outputs.revision }}
+          ARTIFACT_SHA256: ${{ steps.package.outputs.sha256 }}
+        run: |
+          short=${GITHUB_SHA:0:12}
+          tag="tablet-aarch64-$short"
+          cat > build/release-notes.txt <<EOF
+          AArch64 Android/Termux Grease runtime.
+
+          Grease repository commit: $GITHUB_SHA
+          Pinned Oils-derived Grease source: $SOURCE_SHA
+          ABI: arm64-v8a
+          Android API floor: $ANDROID_API
+          Artifact SHA-256: $ARTIFACT_SHA256
+
+          Cloud build evidence only. Physical-tablet execution remains pending until Tablet Cat Food installs and exercises this exact artifact.
+          EOF
+          gh release create "$tag" \
+            build/grease-aarch64-termux.tar.gz \
+            build/grease-aarch64-termux.tar.gz.sha256 \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Grease tablet AArch64 $short" \
+            --notes-file build/release-notes.txt

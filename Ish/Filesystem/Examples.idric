@@ -10,7 +10,7 @@ temporary_directory_request : Open_request Directory_object
 temporary_directory_request =
   Open_at
     (Absolute_location "/tmp")
-    Read
+    Read_only
     Existing_only
     [Close_on_exec]
 

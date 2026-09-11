@@ -167,6 +167,8 @@ The prepositions are not decoration. `at` identifies pathname-resolution
 context, `to` distinguishes link destination from source, and `with`/`for` can
 identify named operating choices without exposing bit masks.
 
-The next implementation step is to lower these meanings through the existing
-Grease libc/Bionic `openat`, `linkat`, `symlinkat`, and `unlinkat` seam, while
-keeping the C/POSIX representations below this semantic boundary.
+The current Grease/Oils libc/Bionic branch is implementation evidence for these
+meanings: it already exercises `openat`, `linkat`, `symlinkat`, and `unlinkat`
+without exposing raw kernel values. It is not the runtime underneath ish. A
+later ish implementation can adopt the same semantic distinctions at its own
+system boundary without manufacturing a second bridge to the Oils runtime.

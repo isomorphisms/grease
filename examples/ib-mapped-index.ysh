@@ -9,14 +9,14 @@ if (len(ARGV) !== 1) {
   exit 2
 }
 
-var opened = native.openat(native.cwd, ARGV[0]; flags=['read-write'])
+var opened = native.openat(native.cwd, ARGV[0], flags=['read-write'])
 if (not opened.ok) {
   echo 'openat failed'
   exit 3
 }
 var index_file = opened.value
 
-var mapped = native.mmap(4096, index_file;
+var mapped = native.mmap(4096, index_file,
                          protection=['read', 'write'], flags=['shared'])
 if (not mapped.ok) {
   echo 'mmap failed'
@@ -36,7 +36,7 @@ if (not wrote.ok) {
   exit 6
 }
 
-var synced = native.msync(index_page; flags=['sync'])
+var synced = native.msync(index_page, flags=['sync'])
 if (not synced.ok) {
   echo 'msync failed'
   exit 7

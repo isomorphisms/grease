@@ -3,8 +3,8 @@ module Ish.Filesystem.Request
 import Ish.Filesystem.Meaning
 import Ish.System.Error
 
--- linkat normally hard-links the object named by the source location.  Its
--- AT_SYMLINK_FOLLOW mode instead follows a final symbolic link first.  Keep
+-- linkat normally hard-links the object named by the source location. Its
+-- AT_SYMLINK_FOLLOW mode instead follows a final symbolic link first. Keep
 -- that choice named rather than exposing a numeric flag.
 public export
 data Hard_link_source
@@ -18,7 +18,7 @@ record Hard_link_request where
   hard_link_source_resolution : Hard_link_source
   hard_link_destination : Filesystem_location
 
--- A symbolic link stores target text.  The target need not exist and therefore
+-- A symbolic link stores target text. The target need not exist and therefore
 -- is deliberately not represented as a resolved Filesystem_location.
 public export
 record Symbolic_link_request where
@@ -40,7 +40,7 @@ record Removal_request where
   removal_kind : Removal_kind
 
 -- This is the small filesystem vocabulary corresponding to the current
--- openat/linkat/symlinkat/unlinkat experiment.  The public names describe what
+-- openat/linkat/symlinkat/unlinkat experiment. The public names describe what
 -- the shell means; the Unix adapter remains free to use the exact libc names.
 public export
 data Filesystem_request
@@ -50,13 +50,13 @@ data Filesystem_request
   | Make_symbolic_link Symbolic_link_request
   | Remove_name Removal_request
 
--- Results depend on the requested operation.  Failures are System_error values,
--- never sentinel integers.  Link creation and removal return Unit because the
--- successful operation has no additional shell value to report.
+-- Results depend on the requested operation. Failures are
+-- Operating_system_error values, never sentinel integers. Link creation and
+-- removal return Unit because success has no additional shell value to report.
 public export
 request_result : Filesystem_request → Type
-request_result (Open_object _) = Either System_error Open_handle
-request_result (Open_directory _) = Either System_error Directory
-request_result (Make_hard_link _) = Either System_error ()
-request_result (Make_symbolic_link _) = Either System_error ()
-request_result (Remove_name _) = Either System_error ()
+request_result (Open_object _) = Either Operating_system_error Open_handle
+request_result (Open_directory _) = Either Operating_system_error Directory
+request_result (Make_hard_link _) = Either Operating_system_error ()
+request_result (Make_symbolic_link _) = Either Operating_system_error ()
+request_result (Remove_name _) = Either Operating_system_error ()

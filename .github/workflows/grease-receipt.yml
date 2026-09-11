@@ -70,6 +70,19 @@ jobs:
           ninja _bin/cxx-dbg/cpp/libc_test
           _bin/cxx-dbg/cpp/libc_test -t grease_native_
 
+      - name: Exercise mapped IB index from Grease
+        working-directory: source-worktree
+        shell: bash
+        run: |
+          ninja _bin/cxx-asan+gcalways/ysh
+          index_file=$(mktemp)
+          trap 'rm -f "$index_file"' EXIT
+          truncate -s 4096 "$index_file"
+          printf fragment | dd of="$index_file" conv=notrunc status=none
+          _bin/cxx-asan+gcalways/ysh \
+            "$GITHUB_WORKSPACE/examples/ib-mapped-index.ysh" "$index_file"
+          test "$(head -c 8 "$index_file")" = pensieve
+
       - name: Verify inherited cpp-spec result
         working-directory: source-worktree
         run: soil/host-shim.sh did-all-succeed cpp-spec

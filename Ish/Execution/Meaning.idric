@@ -1,6 +1,7 @@
 module Ish.Execution.Meaning
 
 import Ish.Source.Meaning
+import public Ish.System.Error
 
 -- These meanings cross execution layers together with their source evidence,
 -- so their constructors are deliberately visible. `public export` is
@@ -23,14 +24,6 @@ record Current_process_replacement where
   replacement_source : Incantation_source
   replacement_executable : Executable_path
   replacement_inputs : List Text
-
--- The ABI reports errno as a raw signed integer. The numeric representation is
--- consumed at the foreign boundary; the shell retains only the operating
--- system's description of the failure.
-public export
-record Operating_system_error where
-  constructor Operating_system_error_reported
-  error_text : Text
 
 -- Success has no corresponding value because execve replaces the process.
 -- Returning from that operation therefore proves the replacement failed.

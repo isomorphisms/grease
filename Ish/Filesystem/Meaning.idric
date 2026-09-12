@@ -1,0 +1,85 @@
+module Ish.Filesystem.Meaning
+
+import public System.File.Permissions
+
+-- A Unix descriptor is an adapter representation for an opened kernel object.
+-- Keep it below the filesystem meanings so ordinary ish source does not pass
+-- naked signed integers as handles.
+public export
+record File_descriptor where
+  constructor Descriptor
+  descriptor_representation : Int
+
+-- An ordinary open yields a handle to whatever filesystem object pathname
+-- resolution selected. The descriptor representation stays behind that handle.
+public export
+record Open_handle where
+  constructor Opened_object
+  opened_descriptor : File_descriptor
+
+-- A Directory is an opened handle after the operating system has verified that
+-- the opened object is a directory. Keeping the generic handle inside the
+-- refinement makes it possible to forget the extra fact without inventing a
+-- second descriptor identity.
+public export
+record Directory where
+  constructor Directory_verified
+  directory_handle : Open_handle
+
+-- A relative location needs an explicit resolution base. The working
+-- directory is process state; an opened directory remains a stable handle even
+-- if namespace names around it later change.
+public export
+data Directory_reference
+  = Working_directory
+  | At_directory Directory
+
+-- This is an instruction for namespace/pathname resolution, not a memory
+-- address, a storage address, or proof that an object currently exists.
+-- Absolute path text is resolved from the filesystem root. Relative path text
+-- is resolved from the supplied directory reference.
+public export
+data Filesystem_location
+  = Absolute_location Text
+  | Relative_location Directory_reference Text
+
+public export
+data File_access
+  = Read_only
+  | Write_only
+  | Read_and_write
+
+-- Reuse Idriç's existing semantic Permissions record: user, group, and others
+-- each carry named Read/Write/Execute modes. A future ish Unix adapter may lower
+-- that value to mode_t, and the process umask can restrict the effective mode.
+-- Presence and creation are separated so permissions cannot be supplied to an
+-- ordinary existing-only open where they have no meaning.
+public export
+data File_presence
+  = Existing_only
+  | Create_if_missing Permissions
+  | Create_new Permissions
+
+-- These are named semantic choices, not exported O_* integer bits. A future ish
+-- Unix adapter may validate and lower combinations at its own boundary.
+-- Reject_final_symbolic_link means that a final symbolic link makes the open
+-- fail; it does not mean "open the symbolic-link object".
+public export
+data Open_choice
+  = Append_writes
+  | Truncate_existing
+  | Close_on_exec
+  | Reject_final_symbolic_link
+  | Nonblocking
+  | Synchronous_writes
+  | Synchronous_data_writes
+
+-- Directory verification belongs to the Open_directory operation rather than
+-- to a phantom index on these common open arguments.
+public export
+record Open_request where
+  constructor Open_at
+  open_location : Filesystem_location
+  open_access : File_access
+  open_presence : File_presence
+  open_choices : List Open_choice

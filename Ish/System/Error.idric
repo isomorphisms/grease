@@ -1,0 +1,32 @@
+module Ish.System.Error
+
+-- System calls and libc operations often report failure through an exceptional
+-- representation such as -1 plus errno. That sentinel representation is
+-- consumed at the operating-system boundary; shell-facing code receives a
+-- named error value instead.
+public export
+data Operating_system_error_kind
+  = Interrupted
+  | Permission_denied
+  | No_such_entry
+  | Already_exists
+  | Not_a_directory
+  | Is_a_directory
+  | Invalid_argument
+  | Too_many_open_files
+  | No_space
+  | Read_only_filesystem
+  | Out_of_memory
+  | Not_supported
+
+-- Retain useful operating-system evidence without pretending every adapter has
+-- already classified every platform error. The numeric error stays an ABI
+-- representation, not an ordinary shell Number; the semantic classification
+-- and platform symbolic name are independently optional.
+public export
+record Operating_system_error where
+  constructor Operating_system_error_reported
+  error_kind : Maybe Operating_system_error_kind
+  error_number_representation : Int
+  error_symbol : Maybe Text
+  error_text : Text

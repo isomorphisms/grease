@@ -51,7 +51,7 @@ replace_current_process replacement = do
   pure $
     Could_not_replace_process replacement $
       Operating_system_error_reported
-        Unclassified_operating_system_error
+        Nothing
         foreign_error
         Nothing
         error_text

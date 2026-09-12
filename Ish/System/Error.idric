@@ -18,16 +18,15 @@ data Operating_system_error_kind
   | Read_only_filesystem
   | Out_of_memory
   | Not_supported
-  | Unclassified_operating_system_error
 
--- Retain useful operating-system evidence without confusing it with an
--- operation's successful result. The numeric errno stays an ABI representation,
--- not an ordinary shell Number. Some platforms or errors may not have a useful
--- symbolic name, so that field is optional.
+-- Retain useful operating-system evidence without pretending every adapter has
+-- already classified every platform error. The numeric error stays an ABI
+-- representation, not an ordinary shell Number; the semantic classification
+-- and platform symbolic name are independently optional.
 public export
 record Operating_system_error where
   constructor Operating_system_error_reported
-  error_kind : Operating_system_error_kind
+  error_kind : Maybe Operating_system_error_kind
   error_number_representation : Int
   error_symbol : Maybe Text
   error_text : Text

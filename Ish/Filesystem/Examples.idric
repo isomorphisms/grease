@@ -6,7 +6,7 @@ import Ish.Filesystem.Request
 -- Realistic request values used as a compile-time canary for the filesystem
 -- model. They are meanings only; this module does not perform filesystem IO.
 public export
-temporary_directory_request : Open_request Directory_object
+temporary_directory_request : Open_request
 temporary_directory_request =
   Open_at
     (Absolute_location "/tmp")
@@ -15,10 +15,21 @@ temporary_directory_request =
     [Close_on_exec]
 
 public export
-notes_from_working_directory : Open_request Any_object
+notes_from_working_directory : Open_request
 notes_from_working_directory =
   Open_at
     (Relative_location Working_directory "notes")
+    Read_and_write
+    Existing_only
+    [Close_on_exec]
+
+-- A directory-relative request can only use a Directory value: a generic
+-- Open_handle cannot be silently treated as a verified pathname base.
+public export
+notes_from_directory : Directory → Open_request
+notes_from_directory directory =
+  Open_at
+    (Relative_location (At_directory directory) "notes")
     Read_and_write
     Existing_only
     [Close_on_exec]
@@ -32,7 +43,7 @@ cache_file_permissions =
     []
 
 public export
-new_cache_file : Open_request Any_object
+new_cache_file : Open_request
 new_cache_file =
   Open_at
     (Relative_location Working_directory "cache")
@@ -69,7 +80,7 @@ remove_empty_directory =
     (Relative_location Working_directory "empty-directory")
     Remove_directory
 
--- The result type follows the request: the directory-open request produces a
+-- The operation determines the result: a directory-open request produces a
 -- Directory on success rather than an unrestricted opened-object handle.
 public export
 temporary_directory_result : Type

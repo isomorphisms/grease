@@ -3,7 +3,8 @@
 > **Design sketch.** This note records the first filesystem model underneath the
 > shell-argument layer. It is deliberately smaller than POSIX and does not claim
 > to model storage allocation, every `openat` flag, mounts, namespaces, or every
-> kind of filesystem object.
+> kind of filesystem object. It also does not claim that ish currently executes
+> these filesystem requests.
 
 ## Three different meanings of location
 
@@ -16,7 +17,9 @@ separate:
 3. a **storage location** identifies blocks, clusters, extents, sectors, or
    other allocation units on a storage device.
 
-The current filesystem sketch models only the second meaning. `mmap` belongs to
+The current filesystem sketch models only the second meaning. A
+`Filesystem_location` is a resolution instruction, not proof that resolution
+succeeds and not the identity of an already-resolved object. `mmap` belongs to
 memory mapping and must not reuse filesystem-location vocabulary. Physical disk
 allocation belongs below the filesystem namespace model and is not inferred
 from a pathname.
@@ -47,8 +50,10 @@ location.
 
 An opened descriptor is different again. It is a process handle to an opened
 kernel object, not the object's pathname and not its disk allocation. The ish
-semantic layer therefore wraps a raw descriptor as an opened handle and gives a
-directory-verified handle the narrower `Directory` type.
+semantic layer therefore wraps a raw descriptor as an `Open_handle`. A
+`Directory` contains that same generic handle only after the operating system
+has verified the opened object is a directory. The narrower value is therefore
+a refinement of the opened handle, not a second descriptor identity.
 
 ## Absolute and directory-relative resolution
 
@@ -66,40 +71,55 @@ Relative_location Working_directory path_text
 Relative_location (At_directory directory) path_text
 ```
 
-The Unix adapter can lower `Working_directory` to `AT_FDCWD` and an opened
-`Directory` to its file descriptor. An absolute location does not carry a
-meaningless directory argument merely because the C function signature has one.
+A future ish Unix adapter can lower `Working_directory` to `AT_FDCWD` and an
+opened `Directory` to its underlying file descriptor. An absolute location does
+not carry a meaningless directory argument merely because the C function
+signature has one.
 
 This is also why `Directory` is more useful than exposing a naked integer file
 descriptor: directory-relative resolution can state what kind of handle it
-requires.
+requires. A generic `Open_handle` is not silently accepted as a pathname base.
+
+The constructors state the intended absolute or relative interpretation. This
+first semantic slice does not yet attempt a type-level proof of pathname text
+shape; an eventual adapter must validate rather than silently reinterpret a
+mis-formed value.
 
 ## Opening
 
-The first request separates four questions:
+The common open arguments separate four questions:
 
 - **where**: `Filesystem_location`;
 - **access**: read, write, or read-and-write;
 - **presence**: existing only, create if missing, or create new;
-- **behavior**: named choices such as append, truncate, close-on-exec, no-follow,
-  nonblocking, or synchronous writes.
+- **choices**: named choices such as append, truncate, close-on-exec, rejection
+  of a final symbolic link, nonblocking, or synchronous writes.
 
 Creation reuses Idriç's existing `Permissions` record: user, group, and others
-each carry named read/write/execute modes. The Unix adapter may still lower
+each carry named read/write/execute modes. A future ish Unix adapter may lower
 that value to `mode_t`, and the process umask may still restrict the effective
 mode. Neither fact requires the shell layer to expose an unexplained integer.
 
-The request is indexed by whether any opened object is acceptable or the
-operating system must verify that the result is a directory. The result follows
-that index:
+`Open_choice` is deliberately a collection of semantic names rather than a
+public integer bit mask. Repeating a choice has no additional semantic meaning;
+if a future adapter encounters an incompatible combination, validation belongs
+at that boundary rather than in shell source.
+
+Whether the operating system must verify a directory is not a phantom parameter
+on `Open_request`. It is the actual filesystem operation:
 
 ```text
-open any object      → Open_handle
-open directory       → Directory
+Open_object request      → Open_handle
+Open_directory request   → Directory
 ```
 
-This is a small useful dependent relationship. It does not try to prove resource
-lifetimes or require linear use of every descriptor.
+The second operation must reject a non-directory before constructing
+`Directory`. This keeps the useful result distinction without making the common
+open arguments pretend to carry runtime evidence they do not contain.
+
+`Reject_final_symbolic_link` means a final symbolic link makes the open fail. It
+does not mean that the symbolic-link object itself is opened. That distinction
+matches the intended no-follow semantics without exporting `O_NOFOLLOW`.
 
 ## Hard links, symbolic links, and removal
 
@@ -113,17 +133,23 @@ the new symbolic link will be created. The target remains text because dangling
 symbolic links are valid.
 
 Removal distinguishes ordinary nondirectory-name removal from directory
-removal. The Unix adapter can lower the latter to `AT_REMOVEDIR`; the semantic
-layer does not expose that integer flag.
+removal. A future ish Unix adapter can lower the latter to `AT_REMOVEDIR`; the
+semantic layer does not expose that integer flag.
 
 ## Errors
 
-The shared `Operating_system_error` type is used by this lower system layer and
-by the existing process-replacement boundary. An adapter consumes sentinel
-return values and `errno`, classifies common failures when useful, and retains
-the raw error number, an optional symbolic name, and the operating system's
-explanatory text. A failed C call returning `-1` therefore does not become the
-shell value `-1`.
+The shared `Operating_system_error` type is used by this lower system model and
+by the existing process-replacement boundary. Sentinel return values stay below
+the shell-facing meaning. The error retains the raw signed error-number
+representation and explanatory text, while semantic classification and a
+platform symbolic name are each optional.
+
+That optional classification matters now: the existing ish process-replacement
+boundary retains the returned error number and `strerror` text but does not yet
+claim a complete errno-to-semantic-kind classifier. It therefore records
+`Nothing` rather than manufacturing an `Unclassified_operating_system_error`
+kind. A later filesystem adapter may classify common failures when that is
+useful without losing the original platform evidence.
 
 This name deliberately avoids `NativeError`: “native” says nothing about what
 failed or which boundary reported it.
@@ -168,8 +194,16 @@ The prepositions are not decoration. `at` identifies pathname-resolution
 context, `to` distinguishes link destination from source, and `with`/`for` can
 identify named operating choices without exposing bit masks.
 
-The current Grease/Oils libc/Bionic branch is implementation evidence for these
-meanings: it already exercises `openat`, `linkat`, `symlinkat`, and `unlinkat`
-without exposing raw kernel values. It is not the runtime underneath ish. A
-later ish implementation can adopt the same semantic distinctions at its own
-system boundary without manufacturing a second bridge to the Oils runtime.
+## Relationship to the Grease/Oils libc work
+
+The separate `native/linux-libc-vocabulary` Grease/Oils branch is implementation
+evidence for some of these distinctions: its current Grease/YSH runtime has
+exercised `openat`, `linkat`, `symlinkat`, and `unlinkat` through the inherited
+Oils native boundary, including Bionic work. None of that code is the ish
+runtime, none of those runs accept this ish model, and this PR does not import
+that implementation.
+
+A later ish implementation can use the same semantic distinctions at its own
+system boundary. Until such an implementation and its own acceptance exist,
+this PR claims only the typed ish meanings plus the existing ish acceptance
+slice that happens to compile them.

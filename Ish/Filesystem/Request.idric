@@ -27,7 +27,7 @@ record Symbolic_link_request where
   symbolic_link_location : Filesystem_location
 
 -- unlinkat distinguishes ordinary namespace removal from directory removal.
--- The adapter maps Remove_directory to AT_REMOVEDIR.
+-- A future ish Unix adapter may lower Remove_directory to AT_REMOVEDIR.
 public export
 data Removal_kind
   = Remove_nondirectory_name
@@ -39,13 +39,15 @@ record Removal_request where
   removal_location : Filesystem_location
   removal_kind : Removal_kind
 
--- This is the small filesystem vocabulary corresponding to the current
--- openat/linkat/symlinkat/unlinkat experiment. The public names describe what
--- the shell means; the Unix adapter remains free to use the exact libc names.
+-- Open_object accepts whatever object the location resolves to. Open_directory
+-- additionally requires the operating system to verify that the opened object
+-- is a directory before a Directory value can be constructed. These meanings
+-- correspond to the current openat/linkat/symlinkat/unlinkat design slice; no
+-- ish implementation of those libc calls is claimed here.
 public export
 data Filesystem_request
-  = Open_object (Open_request Any_object)
-  | Open_directory (Open_request Directory_object)
+  = Open_object Open_request
+  | Open_directory Open_request
   | Make_hard_link Hard_link_request
   | Make_symbolic_link Symbolic_link_request
   | Remove_name Removal_request

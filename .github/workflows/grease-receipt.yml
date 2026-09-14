@@ -7,8 +7,7 @@ on:
 
 jobs:
   cpp-spec:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, linux, debian]
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - name: Check out Grease and pinned Oils source
@@ -16,24 +15,25 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Verify pinned source and Debian host
+      - name: Verify pinned source and Ubuntu host
         shell: bash
         run: |
           revision=$(git rev-parse HEAD:source)
           test "$(git -C source rev-parse HEAD)" = "$revision"
           . /etc/os-release
-          test "$ID" = debian
+          test "$ID" = ubuntu
+          test "$(uname -m)" = x86_64
           echo "Grease source pin: $revision"
-          echo "Debian: $PRETTY_NAME"
+          echo "Ubuntu: $PRETTY_NAME"
 
-      - name: Prepare native Debian Oils environment
+      - name: Prepare Oils build environment
         working-directory: source
         shell: bash
         run: |
           sudo sysctl vm.mmap_rnd_bits=28
           soil/worker.sh JOB-dev-setup-debian
 
-      - name: Run inherited Oils cpp-spec workload natively
+      - name: Run inherited Oils cpp-spec workload
         working-directory: source
         shell: bash
         run: |

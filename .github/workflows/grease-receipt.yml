@@ -5,17 +5,25 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   cpp-spec:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    env:
+      REPO_ROOT: ${{ github.workspace }}/source-worktree
     steps:
-      - name: Check out Grease and pinned Oils source
+      - name: Check out exact Grease head and pinned Oils source
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
+          persist-credentials: false
 
-      - name: Verify pinned source and Ubuntu host
+      - name: Verify and record the source pin
+        id: source_pin
         shell: bash
         run: |
           revision=$(git rev-parse HEAD:source)
@@ -23,20 +31,31 @@ jobs:
           . /etc/os-release
           test "$ID" = ubuntu
           test "$(uname -m)" = x86_64
-          echo "Grease source pin: $revision"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "Grease: $(git rev-parse HEAD)"
+          echo "Oils source: $revision"
           echo "Ubuntu: $PRETTY_NAME"
 
-      - name: Prepare Oils build environment
-        working-directory: source
-        shell: bash
-        run: |
-          sudo sysctl vm.mmap_rnd_bits=28
-          soil/worker.sh JOB-dev-setup-debian
+      - name: Check out pinned Oils source as standalone worktree
+        uses: actions/checkout@v4
+        with:
+          repository: isomorphisms/oils
+          ref: ${{ steps.source_pin.outputs.revision }}
+          path: source-worktree
+          persist-credentials: false
 
-      - name: Run inherited Oils cpp-spec workload
-        working-directory: source
+      - name: Verify standalone source revision
+        shell: bash
+        run: test "$(git -C source-worktree rev-parse HEAD)" = "${{ steps.source_pin.outputs.revision }}"
+
+      - name: Fix kernel mmap rnd bits
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Run and verify inherited Oils cpp-spec oracle
+        working-directory: source-worktree
         shell: bash
         run: |
-          . build/dev-shell.sh
-          soil/worker.sh JOB-cpp-spec
+          podman --version
+          soil/github-actions.sh run-job cpp-spec podman
+          test "$(cat _tmp/soil/commit-hash.txt)" = "${{ steps.source_pin.outputs.revision }}"
           soil/host-shim.sh did-all-succeed cpp-spec

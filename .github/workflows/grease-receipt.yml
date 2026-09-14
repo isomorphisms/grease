@@ -5,16 +5,22 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   cpp-spec:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
     env:
       REPO_ROOT: ${{ github.workspace }}/source-worktree
     steps:
-      - name: Check out Grease and pinned Oils source
+      - name: Check out exact Grease head and pinned Oils source
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
+          persist-credentials: false
 
       - name: Verify and record the source pin
         id: source_pin
@@ -22,7 +28,13 @@ jobs:
         run: |
           revision=$(git rev-parse HEAD:source)
           test "$(git -C source rev-parse HEAD)" = "$revision"
+          . /etc/os-release
+          test "$ID" = ubuntu
+          test "$(uname -m)" = x86_64
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "Grease: $(git rev-parse HEAD)"
+          echo "Oils source: $revision"
+          echo "Ubuntu: $PRETTY_NAME"
 
       # The inherited container harness mounts an Oils worktree by itself.
       # A normal submodule has a .git file whose target is outside that mount,
@@ -35,17 +47,44 @@ jobs:
           path: source-worktree
           persist-credentials: false
 
-      - name: Verify the standalone source revision
+      - name: Verify standalone source revision
         shell: bash
-        run: |
-          test "$(git -C source-worktree rev-parse HEAD)" = "${{ steps.source_pin.outputs.revision }}"
+        run: test "$(git -C source-worktree rev-parse HEAD)" = "${{ steps.source_pin.outputs.revision }}"
 
       - name: Fix kernel mmap rnd bits
         run: sudo sysctl vm.mmap_rnd_bits=28
 
-      - name: Run and verify the inherited Oils cpp-spec oracle
+      - name: Run and verify inherited Oils cpp-spec oracle
         working-directory: source-worktree
+        shell: bash
         run: |
+          podman --version
           soil/github-actions.sh run-job cpp-spec podman
           test "$(cat _tmp/soil/commit-hash.txt)" = "${{ steps.source_pin.outputs.revision }}"
           soil/host-shim.sh did-all-succeed cpp-spec
+
+      - name: Install host dependency for focused native test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreadline-dev
+
+      - name: Build and run focused libc native tests
+        working-directory: source-worktree
+        shell: bash
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" _build _bin
+          ninja _bin/cxx-dbg/cpp/libc_test
+          _bin/cxx-dbg/cpp/libc_test -t grease_native_
+
+      - name: Exercise mapped IB index from Grease
+        working-directory: source-worktree
+        shell: bash
+        run: |
+          test -x _bin/cxx-asan/ysh
+          index_file=$(mktemp)
+          trap 'rm -f "$index_file"' EXIT
+          truncate -s 4096 "$index_file"
+          printf fragment | dd of="$index_file" conv=notrunc status=none
+          _bin/cxx-asan/ysh \
+            "$GITHUB_WORKSPACE/examples/ib-mapped-index.ysh" "$index_file"
+          test "$(head -c 8 "$index_file")" = pensieve

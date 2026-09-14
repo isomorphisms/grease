@@ -63,6 +63,11 @@ jobs:
           test "$(cat _tmp/soil/commit-hash.txt)" = "${{ steps.source_pin.outputs.revision }}"
           soil/host-shim.sh did-all-succeed cpp-spec
 
+      - name: Install host dependency for focused native test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreadline-dev
+
       - name: Build and run focused libc native tests
         working-directory: source-worktree
         shell: bash

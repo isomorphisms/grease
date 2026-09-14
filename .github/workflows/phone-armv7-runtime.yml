@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      REPO_ROOT: ${{ github.workspace }}/source-worktree
       ANDROID_API: '28'
       ANDROID_ABI: armeabi-v7a
       ANDROID_NDK_VERSION: '27.3.13750724'
+      REPO_ROOT: ${{ github.workspace }}/source-worktree
     steps:
       - name: Check out exact Grease head and pinned Oils source
         uses: actions/checkout@v4
@@ -29,7 +29,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - name: Verify and record exact source pin
+      - name: Verify exact source pin and Ubuntu host
         id: source_pin
         shell: bash
         run: |
@@ -39,9 +39,11 @@ jobs:
           test "$ID" = ubuntu
           test "$(uname -m)" = x86_64
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "Grease: $(git rev-parse HEAD)"
+          echo "Oils source: $revision"
           echo "Ubuntu: $PRETTY_NAME"
 
-      - name: Check out pinned source as standalone worktree
+      - name: Check out pinned Oils source as standalone worktree
         uses: actions/checkout@v4
         with:
           repository: isomorphisms/oils
@@ -56,7 +58,7 @@ jobs:
       - name: Fix kernel mmap rnd bits
         run: sudo sysctl vm.mmap_rnd_bits=28
 
-      - name: Generate native C++ source bundle from current Grease
+      - name: Generate native C++ source bundle with inherited Oils cpp-tarball job
         working-directory: source-worktree
         shell: bash
         run: |
@@ -97,7 +99,7 @@ jobs:
         shell: bash
         env:
           GREASE_SOURCE_SHA: ${{ steps.source_pin.outputs.revision }}
-          GREASE_PACKAGING_SHA: ${{ github.sha }}
+          GREASE_PACKAGING_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/$ANDROID_NDK_VERSION"
           test -d "$ANDROID_NDK_HOME"
@@ -131,7 +133,7 @@ jobs:
       - name: Upload exact build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: grease-armv7-termux-${{ github.sha }}
+          name: grease-armv7-termux-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             build/grease-armv7-termux.tar.gz
             build/grease-armv7-termux.tar.gz.sha256

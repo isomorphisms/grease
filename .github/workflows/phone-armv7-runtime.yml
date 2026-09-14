@@ -14,43 +14,55 @@ permissions:
 
 jobs:
   build-armv7-runtime:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, linux, debian]
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
+      REPO_ROOT: ${{ github.workspace }}/source-worktree
       ANDROID_API: '28'
       ANDROID_ABI: armeabi-v7a
       ANDROID_NDK_VERSION: '27.3.13750724'
     steps:
-      - name: Check out Grease and pinned Oils source
+      - name: Check out exact Grease head and pinned Oils source
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
+          persist-credentials: false
 
-      - name: Verify exact source pin and Debian host
+      - name: Verify and record exact source pin
         id: source_pin
         shell: bash
         run: |
           revision=$(git rev-parse HEAD:source)
           test "$(git -C source rev-parse HEAD)" = "$revision"
           . /etc/os-release
-          test "$ID" = debian
+          test "$ID" = ubuntu
+          test "$(uname -m)" = x86_64
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
-          echo "Debian: $PRETTY_NAME"
+          echo "Ubuntu: $PRETTY_NAME"
 
-      - name: Prepare native Debian Oils environment
-        working-directory: source
+      - name: Check out pinned source as standalone worktree
+        uses: actions/checkout@v4
+        with:
+          repository: isomorphisms/oils
+          ref: ${{ steps.source_pin.outputs.revision }}
+          path: source-worktree
+          persist-credentials: false
+
+      - name: Verify standalone source revision
+        shell: bash
+        run: test "$(git -C source-worktree rev-parse HEAD)" = "${{ steps.source_pin.outputs.revision }}"
+
+      - name: Fix kernel mmap rnd bits
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Generate native C++ source bundle from current Grease
+        working-directory: source-worktree
         shell: bash
         run: |
-          sudo sysctl vm.mmap_rnd_bits=28
-          soil/worker.sh JOB-dev-setup-debian
-
-      - name: Generate native C++ source bundle with Oils cpp-tarball job
-        working-directory: source
-        shell: bash
-        run: |
-          . build/dev-shell.sh
-          soil/worker.sh JOB-cpp-tarball
+          podman --version
+          soil/github-actions.sh run-job cpp-tarball podman
+          test "$(cat _tmp/soil/commit-hash.txt)" = "${{ steps.source_pin.outputs.revision }}"
           soil/host-shim.sh did-all-succeed cpp-tarball
           test -f _release/oils-for-unix.tar
 
@@ -75,7 +87,7 @@ jobs:
         run: |
           rm -rf build/native-source build/package
           mkdir -p build/native-source build/package
-          tar -xf source/_release/oils-for-unix.tar -C build/native-source
+          tar -xf source-worktree/_release/oils-for-unix.tar -C build/native-source
           source_dir=$(find build/native-source -mindepth 1 -maxdepth 1 -type d -name 'oils-for-unix-*' -print -quit)
           test -n "$source_dir"
           test -x "$source_dir/_build/oils.sh"
@@ -146,7 +158,7 @@ jobs:
           Android NDK: $ANDROID_NDK_VERSION
           Artifact SHA-256: $ARTIFACT_SHA256
 
-          Debian cloud build evidence only. Physical-phone execution remains pending until Phone Cat Food installs and exercises this exact artifact.
+          GitHub-hosted Ubuntu build evidence only. Physical-phone execution remains pending until Phone Cat Food installs and exercises this exact artifact.
           EOF
           gh release create "$tag" \
             build/grease-armv7-termux.tar.gz \

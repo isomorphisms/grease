@@ -80,11 +80,11 @@ jobs:
         working-directory: source-worktree
         shell: bash
         run: |
-          ninja _bin/cxx-asan+gcalways/ysh
+          test -x _bin/cxx-asan/ysh
           index_file=$(mktemp)
           trap 'rm -f "$index_file"' EXIT
           truncate -s 4096 "$index_file"
           printf fragment | dd of="$index_file" conv=notrunc status=none
-          _bin/cxx-asan+gcalways/ysh \
+          _bin/cxx-asan/ysh \
             "$GITHUB_WORKSPACE/examples/ib-mapped-index.ysh" "$index_file"
           test "$(head -c 8 "$index_file")" = pensieve

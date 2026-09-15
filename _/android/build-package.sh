@@ -9,13 +9,13 @@ api=${ANDROID_API:-28}
 case "$target" in
   phone)
     abi=armeabi-v7a
-    machine=armv7le
+    machine=tarmv7le
     clang_target=armv7a-linux-androideabi
     elf_machine='ARM'
     ;;
   tablet)
     abi=arm64-v8a
-    machine=arm64le
+    machine=tarm64le
     clang_target=aarch64-linux-android
     elf_machine='AArch64'
     ;;

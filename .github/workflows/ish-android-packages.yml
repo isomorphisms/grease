@@ -86,11 +86,25 @@ jobs:
       - name: Cross-build real Ish package
         env:
           ISH_SOURCE_SHA: ${{ github.sha }}
+        shell: bash
         run: |
+          mkdir -p build/diagnostics
+          set +e
           bash _/android/build-package.sh \
             '${{ matrix.target }}' \
             _chez \
-            build/package
+            build/package \
+            2>&1 | tee 'build/diagnostics/cross-build-${{ matrix.target }}.log'
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Retain cross-build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ish-${{ matrix.target }}-cross-build-log-${{ github.sha }}
+          path: build/diagnostics/cross-build-${{ matrix.target }}.log
+          if-no-files-found: error
 
       - name: Check package boundary
         shell: bash

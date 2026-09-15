@@ -100,6 +100,14 @@ make clean >/dev/null 2>&1 || true
 CC="$cc" CC_FOR_BUILD=cc ./configure \
   --cross --force -m="$machine" \
   --disable-x11 --disable-curses --disable-iconv --disable-hard-links
+
+# Chez infers t*le as a Linux target and adds separate librt and libpthread.
+# Android/Bionic provides those APIs from libc, so keep -pthread compilation
+# flags but remove only the two nonexistent target libraries before linking.
+sed -i \
+  -e '/^LIBS=/s/[[:space:]]-lrt//g' \
+  -e '/^LIBS=/s/[[:space:]]-lpthread//g' \
+  "$machine/Mf-config"
 make -j2
 
 target_scheme="$chez_source/$machine/bin/$machine/scheme"

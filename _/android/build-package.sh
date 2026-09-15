@@ -66,14 +66,14 @@ work="$repo_root/_/build/android-$target"
 rm -rf "$work" "$output_dir/bin" "$output_dir/libexec" "$output_dir/receipts"
 mkdir -p "$work" "$output_dir/bin" "$output_dir/libexec/ish" "$output_dir/receipts"
 
-# Build a host portable-bytecode Chez first. Its bootquick target creates both
+# Build a threaded host portable-bytecode Chez first. Its bootquick target creates both
 # target boot files and xc-<machine>/s/xpatch, which is Chez's supported path
 # for making compile-program emit code for another machine type.
 pushd "$chez_source" >/dev/null
-./configure --pb --disable-x11 --disable-curses --disable-iconv
+./configure --pb --threads --disable-x11 --disable-curses --disable-iconv
 make -j2
 make bootquick XM="$machine"
-host_scheme="$chez_source/pb/bin/pb/scheme"
+host_scheme="$chez_source/tpb/bin/tpb/scheme"
 xpatch="$chez_source/xc-$machine/s/xpatch"
 [[ -x $host_scheme && -f $xpatch ]] || {
   printf '%s\n' 'Chez did not produce the host compiler and target cross patch' >&2

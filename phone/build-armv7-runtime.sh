@@ -106,6 +106,29 @@ runtime=_bin/android-armv7-clang++-opt-sh/oils-for-unix.stripped
   exit 3
 }
 
+# Reproduce the old verifier and record both pipeline statuses.  This is
+# diagnostic only: the fixed verifier below remains authoritative.
+sigpipe_count=0
+grep_miss_count=0
+other_failure_count=0
+for _ in $(seq 1 100); do
+  set +e
+  "$readelf" -h "$runtime" | grep -Eq 'Machine:[[:space:]]+ARM'
+  old_status=("${PIPESTATUS[@]}")
+  set -e
+  if [[ ${old_status[0]} -eq 141 && ${old_status[1]} -eq 0 ]]; then
+    sigpipe_count=$((sigpipe_count + 1))
+  elif [[ ${old_status[0]} -eq 0 && ${old_status[1]} -ne 0 ]]; then
+    grep_miss_count=$((grep_miss_count + 1))
+  elif [[ ${old_status[0]} -ne 0 || ${old_status[1]} -ne 0 ]]; then
+    other_failure_count=$((other_failure_count + 1))
+    printf 'old ARM verifier unexpected statuses: readelf=%s grep=%s\n' \
+      "${old_status[0]}" "${old_status[1]}" >&2
+  fi
+done
+printf 'old ARM verifier diagnostic: runs=100 readelf_sigpipe=%d grep_miss=%d other_failure=%d\n' \
+  "$sigpipe_count" "$grep_miss_count" "$other_failure_count" >&2
+
 "$readelf" -h "$runtime" | grep -E 'Machine:[[:space:]]+ARM' >/dev/null || {
   echo 'Grease phone runtime is not an ARM ELF binary' >&2
   "$readelf" -h "$runtime" >&2

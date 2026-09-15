@@ -1,0 +1,180 @@
+name: ish Android packages
+
+on:
+  push:
+    branches:
+      - ish-android-packages
+  pull_request:
+    branches:
+      - ish
+    paths:
+      - 'Ish.idric'
+      - 'Ish/**'
+      - '_/android/**'
+      - '_/runtime/**'
+      - '_/ish.ipkg'
+      - '_/idric.lock'
+      - '.github/workflows/ish-android-packages.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: phone
+            abi: armeabi-v7a
+            archive: ish-armv7-termux.tar.gz
+            tag_prefix: ish-phone-armv7
+            title: Ish phone ARMv7
+          - target: tablet
+            abi: arm64-v8a
+            archive: ish-aarch64-termux.tar.gz
+            tag_prefix: ish-tablet-aarch64
+            title: Ish tablet AArch64
+    env:
+      ANDROID_API: '28'
+      CHEZ_SHA: 8d105909c0afe899b6983e3371e5a7163c7e1826
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read exact Idriç pin
+        id: idric
+        shell: sh
+        run: |
+          revision=$(sed -n 's/^revision = "\([0-9a-f][0-9a-f]*\)"$/\1/p' _/idric.lock)
+          test -n "$revision"
+          printf 'revision=%s\n' "$revision" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: isomorphisms/Idric
+          ref: ${{ steps.idric.outputs.revision }}
+          path: _idric
+          persist-credentials: false
+
+      - uses: actions/checkout@v4
+        with:
+          repository: cisco/ChezScheme
+          ref: ${{ env.CHEZ_SHA }}
+          path: _chez
+          persist-credentials: false
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl
+
+      - name: Bootstrap exact Idriç revision
+        run: ./_idric/_/edric bootstrap
+
+      - name: Generate Chez source from maintained Ish
+        env:
+          IDRIS2_PREFIX: ${{ github.workspace }}/_idric/_/bootstrap-build
+          IDRIC: ${{ github.workspace }}/_idric/_/build/exec/idris2
+          CHEZ: ${{ github.workspace }}/_idric/_/.tools/bin/scheme
+        run: |
+          make -C _ clean
+          make -C _ build/exec/ish-backend
+          test -s _/build/exec/ish-backend_app/ish-backend.ss
+
+      - name: Cross-build real Ish package
+        env:
+          ISH_SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          mkdir -p build/diagnostics
+          set +e
+          bash _/android/build-package.sh \
+            '${{ matrix.target }}' \
+            _chez \
+            build/package \
+            2>&1 | tee 'build/diagnostics/cross-build-${{ matrix.target }}.log'
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Retain cross-build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ish-${{ matrix.target }}-cross-build-log-${{ github.sha }}
+          path: build/diagnostics/cross-build-${{ matrix.target }}.log
+          if-no-files-found: error
+
+      - name: Check package boundary
+        shell: bash
+        run: |
+          test -x build/package/bin/ish
+          test ! -e build/package/bin/ysh
+          test ! -e build/package/bin/osh
+          test ! -e build/package/bin/oils-for-unix
+          test -x build/package/libexec/ish/scheme
+          test -s build/package/libexec/ish/ish-backend.so
+          grep -F $'source\tisomorphisms/grease' build/package/receipts/build.tsv
+          grep -F $'abi\t${{ matrix.abi }}' build/package/receipts/build.tsv
+          grep -F $'physical_device_execution\tPENDING' build/package/receipts/build.tsv
+
+      - name: Package deterministic archive
+        id: package
+        shell: bash
+        run: |
+          archive='${{ matrix.archive }}'
+          tar \
+            --sort=name \
+            --mtime='UTC 2020-01-01' \
+            --owner=0 --group=0 --numeric-owner \
+            -C build/package -czf "build/$archive" .
+          sha256=$(sha256sum "build/$archive" | awk '{print $1}')
+          printf '%s  %s\n' "$sha256" "$archive" > "build/$archive.sha256"
+          printf 'sha256=%s\n' "$sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Upload exact build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ish-${{ matrix.target }}-${{ github.sha }}
+          path: |
+            build/${{ matrix.archive }}
+            build/${{ matrix.archive }}.sha256
+            build/package/receipts/
+          if-no-files-found: error
+
+      - name: Publish immutable prerelease
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_SHA256: ${{ steps.package.outputs.sha256 }}
+          IDRIC_SHA: ${{ steps.idric.outputs.revision }}
+        run: |
+          short=${GITHUB_SHA:0:12}
+          tag='${{ matrix.tag_prefix }}-'"$short"
+          archive='${{ matrix.archive }}'
+          cat > build/release-notes.txt <<EOF
+          Maintained Ish runtime for Android/Termux.
+
+          Ish/Grease source commit: $GITHUB_SHA
+          Idriç source commit: $IDRIC_SHA
+          Chez Scheme source commit: $CHEZ_SHA
+          ABI: ${{ matrix.abi }}
+          Android API floor: $ANDROID_API
+          Artifact SHA-256: $ARTIFACT_SHA256
+
+          The package contains bin/ish plus its private Chez runtime and the
+          cross-compiled maintained Ish program. It does not alias ish to Grease,
+          ysh, osh, or oils-for-unix.
+
+          Cloud cross-build evidence only. Physical-${{ matrix.target }} execution
+          remains pending until Cat Food installs and exercises this exact artifact.
+          EOF
+          gh release create "$tag" \
+            "build/$archive" \
+            "build/$archive.sha256" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title '${{ matrix.title }} '"$short" \
+            --notes-file build/release-notes.txt

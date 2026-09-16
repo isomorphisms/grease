@@ -66,14 +66,14 @@ work="$repo_root/_/build/android-$target"
 rm -rf "$work" "$output_dir/bin" "$output_dir/libexec" "$output_dir/receipts"
 mkdir -p "$work" "$output_dir/bin" "$output_dir/libexec/ish" "$output_dir/receipts"
 
-# Build a host portable-bytecode Chez first. Its bootquick target creates both
+# Build a threaded host portable-bytecode Chez first. Its bootquick target creates both
 # target boot files and xc-<machine>/s/xpatch, which is Chez's supported path
 # for making compile-program emit code for another machine type.
 pushd "$chez_source" >/dev/null
-./configure --pb --disable-x11 --disable-curses --disable-iconv
+./configure --pb --threads --disable-x11 --disable-curses --disable-iconv
 make -j2
 make bootquick XM="$machine"
-host_scheme="$chez_source/pb/bin/pb/scheme"
+host_scheme="$chez_source/tpb/bin/tpb/scheme"
 xpatch="$chez_source/xc-$machine/s/xpatch"
 [[ -x $host_scheme && -f $xpatch ]] || {
   printf '%s\n' 'Chez did not produce the host compiler and target cross patch' >&2
@@ -100,6 +100,14 @@ make clean >/dev/null 2>&1 || true
 CC="$cc" CC_FOR_BUILD=cc ./configure \
   --cross --force -m="$machine" \
   --disable-x11 --disable-curses --disable-iconv --disable-hard-links
+
+# Chez infers t*le as a Linux target and adds separate librt and libpthread.
+# Android/Bionic provides those APIs from libc, so keep -pthread compilation
+# flags but remove only the two nonexistent target libraries before linking.
+sed -i \
+  -e '/^LIBS=/s/[[:space:]]-lrt//g' \
+  -e '/^LIBS=/s/[[:space:]]-lpthread//g' \
+  "$machine/Mf-config"
 make -j2
 
 target_scheme="$chez_source/$machine/bin/$machine/scheme"
@@ -127,11 +135,12 @@ cp "$target_program" "$runtime/ish-backend.so"
 chmod 0755 "$output_dir/bin/ish" "$runtime/scheme" "$runtime/ish-backend.so"
 
 for elf in "$output_dir/bin/ish" "$runtime/scheme" "$runtime/libish_runtime.so"; do
-  "$readelf" -h "$elf" | grep -Eq "Machine:[[:space:]]+$elf_machine" || {
+  elf_header=$("$readelf" -h "$elf")
+  if ! grep -Eq "Machine:[[:space:]]+$elf_machine" <<<"$elf_header"; then
     printf 'wrong ELF machine for %s\n' "$elf" >&2
-    "$readelf" -h "$elf" >&2
+    printf '%s\n' "$elf_header" >&2
     exit 3
-  }
+  fi
 done
 
 # Cat Food must receive a real Ish entrypoint, not an alias to an Oils shell.

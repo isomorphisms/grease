@@ -106,14 +106,12 @@ runtime=_bin/android-armv7-clang++-opt-sh/oils-for-unix.stripped
   exit 3
 }
 
-elf_header=$("$readelf" -h "$runtime")
-grep -Eq 'Machine:[[:space:]]+ARM' <<<"$elf_header" || {
+"$readelf" -h "$runtime" | grep -E 'Machine:[[:space:]]+ARM' >/dev/null || {
   echo 'Grease phone runtime is not an ARM ELF binary' >&2
-  printf '%s\n' "$elf_header" >&2
+  "$readelf" -h "$runtime" >&2
   exit 3
 }
-elf_dynamic=$("$readelf" -d "$runtime" 2>/dev/null || true)
-if grep -q 'libc++_shared\.so' <<<"$elf_dynamic"; then
+if "$readelf" -d "$runtime" 2>/dev/null | grep 'libc++_shared\.so' >/dev/null; then
   echo 'Grease phone runtime unexpectedly depends on libc++_shared.so' >&2
   exit 3
 fi

@@ -135,11 +135,12 @@ cp "$target_program" "$runtime/ish-backend.so"
 chmod 0755 "$output_dir/bin/ish" "$runtime/scheme" "$runtime/ish-backend.so"
 
 for elf in "$output_dir/bin/ish" "$runtime/scheme" "$runtime/libish_runtime.so"; do
-  "$readelf" -h "$elf" | grep -Eq "Machine:[[:space:]]+$elf_machine" || {
+  elf_header=$("$readelf" -h "$elf")
+  if ! grep -Eq "Machine:[[:space:]]+$elf_machine" <<<"$elf_header"; then
     printf 'wrong ELF machine for %s\n' "$elf" >&2
-    "$readelf" -h "$elf" >&2
+    printf '%s\n' "$elf_header" >&2
     exit 3
-  }
+  fi
 done
 
 # Cat Food must receive a real Ish entrypoint, not an alias to an Oils shell.

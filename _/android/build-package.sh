@@ -62,6 +62,18 @@ scheme_source="$repo_root/_/build/exec/ish-backend_app/ish-backend.ss"
   exit 2
 }
 
+allocation_probe_output=${ISH_ALLOCATION_PROBE_OUTPUT:-}
+allocation_probe_source="$repo_root/_/build/exec/allocation-probe_app/allocation-probe.ss"
+if [[ -n $allocation_probe_output ]]; then
+  [[ -f $allocation_probe_source ]] || {
+    printf 'generated allocation probe Chez source is missing: %s\n' \
+      "$allocation_probe_source" >&2
+    exit 2
+  }
+  mkdir -p "$(dirname "$allocation_probe_output")"
+  allocation_probe_output=$(cd "$(dirname "$allocation_probe_output")" && pwd)/$(basename "$allocation_probe_output")
+fi
+
 work="$repo_root/_/build/android-$target"
 rm -rf "$work" "$output_dir/bin" "$output_dir/libexec" "$output_dir/receipts"
 mkdir -p "$work" "$output_dir/bin" "$output_dir/libexec/ish" "$output_dir/receipts"
@@ -87,11 +99,23 @@ cat >"$cross_program" <<EOF
 (parameterize ([optimize-level 3] [compile-file-message #f])
   (compile-program "$scheme_source" "$target_program"))
 EOF
+
+if [[ -n $allocation_probe_output ]]; then
+  cat >>"$cross_program" <<EOF
+(parameterize ([optimize-level 3] [compile-file-message #f])
+  (compile-program "$allocation_probe_source" "$allocation_probe_output"))
+EOF
+fi
+
 "$host_scheme" --script "$cross_program"
 [[ -s $target_program ]] || {
   printf '%s\n' 'Chez cross compilation did not produce ish-backend.so' >&2
   exit 3
 }
+if [[ -n $allocation_probe_output && ! -s $allocation_probe_output ]]; then
+  printf '%s\n' 'Chez cross compilation did not produce the allocation probe' >&2
+  exit 3
+fi
 
 # Reconfigure the same pinned Chez source for the Android kernel. The target
 # boot files above make --force legitimate; target code is never executed on

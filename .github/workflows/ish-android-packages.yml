@@ -43,6 +43,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check physical-device harness syntax
+        run: sh -n _/android/accept-package.sh
+
       - name: Read exact Idriç pin
         id: idric
         shell: sh

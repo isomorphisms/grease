@@ -1,9 +1,15 @@
+#define _FILE_OFFSET_BITS 64
 #define _GNU_SOURCE
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#if defined(__linux__)
+#include <linux/falloc.h>
+#endif
 
 enum {
     location_absolute = 0,
@@ -79,6 +85,30 @@ static int directory_descriptor(
         default:
             return EINVAL;
     }
+}
+
+static int nonnegative_offset(const char *text, off_t *result) {
+    if (text == NULL || text[0] == '\0') {
+        return EINVAL;
+    }
+
+    errno = 0;
+    char *end = NULL;
+    long long parsed = strtoll(text, &end, 10);
+    if (errno == ERANGE) {
+        return EOVERFLOW;
+    }
+    if (end == text || *end != '\0' || parsed < 0) {
+        return EINVAL;
+    }
+
+    off_t converted = (off_t)parsed;
+    if ((long long)converted != parsed) {
+        return EOVERFLOW;
+    }
+
+    *result = converted;
+    return 0;
 }
 
 static int open_flags(
@@ -209,6 +239,39 @@ int ish_openat(
         return -errno;
     }
     return opened;
+}
+
+int ish_allocate_keep_size(
+    int descriptor,
+    const char *offset_text,
+    const char *length_text
+) {
+    off_t offset = 0;
+    int error = nonnegative_offset(offset_text, &offset);
+    if (error != 0) {
+        return error;
+    }
+
+    off_t length = 0;
+    error = nonnegative_offset(length_text, &length);
+    if (error != 0) {
+        return error;
+    }
+    if (length == 0) {
+        return EINVAL;
+    }
+
+#if defined(__linux__) && defined(FALLOC_FL_KEEP_SIZE)
+    if (fallocate(descriptor, FALLOC_FL_KEEP_SIZE, offset, length) == 0) {
+        return 0;
+    }
+    return errno;
+#else
+    (void)descriptor;
+    (void)offset;
+    (void)length;
+    return ENOTSUP;
+#endif
 }
 
 int ish_close(int descriptor) {

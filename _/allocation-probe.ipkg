@@ -1,0 +1,11 @@
+package ish-allocation-probe
+
+sourcedir = "src"
+
+modules = Ish.System.Error, Ish.Filesystem.Meaning, Ish.Filesystem.Request,
+          Ish.Filesystem.Execution, Ish.Filesystem.Allocation_probe
+
+main = Ish.Filesystem.Allocation_probe
+executable = allocation-probe
+
+opts = "--codegen chez"

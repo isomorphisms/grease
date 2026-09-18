@@ -4,7 +4,8 @@
 > shell-argument layer. It is deliberately smaller than POSIX and does not claim
 > to model storage allocation, every `openat` flag, mounts, namespaces, or every
 > kind of filesystem object. Ish now executes this request slice through its own
-> Unix adapter for `openat`, `close`, `linkat`, `symlinkat`, and `unlinkat`.
+> Unix adapter for `openat`, `close`, `linkat`, `symlinkat`, and `unlinkat`,
+> and exposes one deliberately small backing-storage allocation operation.
 
 ## Three different meanings of location
 
@@ -169,9 +170,25 @@ namespace name
     → storage device
 ```
 
-That lower allocation model may become useful later, especially for inspection,
-recovery, or filesystem tools. It should be added as its own layer rather than
-making every ordinary shell pathname pretend to be a disk address.
+Ish now exposes one operation at this lower boundary without pretending to model
+the filesystem's allocation structures:
+
+```text
+Allocate_file_storage
+    (Allocate_storage file offset length Keep_visible_size)
+```
+
+The request takes an already-opened file handle plus nonnegative byte offset and
+length. `Keep_visible_size` means reserve backing storage without extending the
+file's visible logical size. It does not expose `FALLOC_FL_KEEP_SIZE` or define
+allocation in terms of Linux flags. The Linux/Android adapter currently realizes
+that meaning with `fallocate(..., FALLOC_FL_KEEP_SIZE, ...)`; a filesystem may
+still report that the operation is unsupported.
+
+Detailed cluster, extent, recovery, and device-allocation models may become
+useful later, especially for inspection or filesystem tools. They remain their
+own layer rather than making every ordinary shell pathname pretend to be a disk
+address.
 
 ## Intended surface direction
 
@@ -205,7 +222,8 @@ that implementation.
 
 The current ish implementation now uses the same distinctions at its own
 system boundary. Its acceptance opens a verified directory, creates a
-directory-relative file with named permissions, creates hard and symbolic
-links, rejects a final symbolic link when requested, removes names and a
-directory, and closes the opened handles. The Grease/Oils implementation
-remains separate evidence rather than an imported runtime.
+directory-relative file with named permissions, reserves backing storage while
+keeping its visible size unchanged, creates hard and symbolic links, rejects a
+final symbolic link when requested, removes names and a directory, and closes
+the opened handles. The Grease/Oils implementation remains separate executable
+reference evidence rather than an imported runtime.

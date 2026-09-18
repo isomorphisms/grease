@@ -1,0 +1,70 @@
+module Ish.Filesystem.Allocation_probe
+
+import System
+import System.File
+
+import Ish.Filesystem.Execution
+import Ish.Filesystem.Meaning
+import Ish.Filesystem.Request
+import Ish.System.Error
+
+probe_name : Text
+probe_name = "ish-keep-size-probe"
+
+probe_permissions : Permissions
+probe_permissions =
+  MkPermissions
+    [FileMode.Read, FileMode.Write]
+    []
+    []
+
+reservation_length : Number
+reservation_length = 1048576
+
+fail : Text → IO a
+fail text = do
+  _ ← fPutStrLn stderr $ "filesystem allocation probe: " ++ text
+  exitWith $ cast $ the Int 1
+
+require_value :
+  Text → Either Operating_system_error value → IO value
+require_value _ (Right value) = pure value
+require_value label (Left error) =
+  fail $
+    label ++
+    ": errno=" ++ show (error_number_representation error) ++
+    ": " ++ error_text error
+
+require_success :
+  Text → Either Operating_system_error () → IO ()
+require_success _ (Right ()) = pure ()
+require_success label (Left error) =
+  fail $
+    label ++
+    ": errno=" ++ show (error_number_representation error) ++
+    ": " ++ error_text error
+
+main : IO ()
+main = do
+  opened_result ← execute_filesystem_request $
+    Open_object $
+      Open_at
+        (Relative_location Working_directory probe_name)
+        Read_and_write
+        (Create_new probe_permissions)
+        [Close_on_exec]
+  opened ← require_value "open probe file" opened_result
+
+  allocation_result ← execute_filesystem_request $
+    Allocate_file_storage $
+      Allocate_storage
+        opened
+        0
+        reservation_length
+        Keep_visible_size
+
+  close_result ← close_open_handle opened
+  require_success "close probe file" close_result
+  require_success "allocate backing storage without visible growth" allocation_result
+
+  putStrLn "ish keep-size allocation request: PASS"

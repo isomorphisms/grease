@@ -129,6 +129,10 @@ symlinkat_primitive :
 unlinkat_primitive :
   Int → Int → Text → Int → PrimIO Int
 
+%foreign "C:ish_allocate_keep_size, libish_runtime"
+allocate_keep_size_primitive :
+  Int → Text → Text → PrimIO Int
+
 operating_system_error : Int → Operating_system_error
 operating_system_error number =
   Operating_system_error_reported
@@ -238,6 +242,19 @@ remove_name request = do
   pure $ unit_result error
 
 export
+allocate_file_storage :
+  Allocation_request → IO (Either Operating_system_error ())
+allocate_file_storage
+  (Allocate_storage
+    (Opened_object (Descriptor descriptor))
+    offset
+    length
+    Keep_visible_size) = do
+  error ← primIO $
+    allocate_keep_size_primitive descriptor (show offset) (show length)
+  pure $ unit_result error
+
+export
 execute_filesystem_request :
   (request : Filesystem_request) → IO (request_result request)
 execute_filesystem_request (Open_object request) =
@@ -250,3 +267,5 @@ execute_filesystem_request (Make_symbolic_link request) =
   make_symbolic_link request
 execute_filesystem_request (Remove_name request) =
   remove_name request
+execute_filesystem_request (Allocate_file_storage request) =
+  allocate_file_storage request

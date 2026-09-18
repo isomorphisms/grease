@@ -80,6 +80,17 @@ remove_empty_directory =
     (Relative_location Working_directory "empty-directory")
     Remove_directory
 
+-- This is a semantic request canary only. It states the desired storage effect
+-- without exposing Linux fallocate flags or depending on a particular libc.
+public export
+reserve_cache_without_growth : Open_handle → Allocation_request
+reserve_cache_without_growth handle =
+  Allocate_storage
+    handle
+    0
+    1048576
+    Keep_visible_size
+
 -- The operation determines the result: a directory-open request produces a
 -- Directory on success rather than an unrestricted opened-object handle.
 public export

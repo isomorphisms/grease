@@ -173,6 +173,10 @@ grep -Fx 'typed filesystem requests reached libc: PASS' \
   "$filesystem_actual" >/dev/null
 test -f "$filesystem_fixture/created"
 test "$(stat -c '%a' "$filesystem_fixture/created")" = 640
+test "$(stat -c '%s' "$filesystem_fixture/created")" = 0
+test "$(stat -c '%b' "$filesystem_fixture/created")" -gt 0
+grep -Fx 'keep-size allocation reached platform interface: PASS' \
+  "$filesystem_actual" >/dev/null
 test ! -e "$filesystem_fixture/hard-link"
 test ! -L "$filesystem_fixture/symbolic-link"
 test ! -d "$filesystem_fixture/empty-directory"

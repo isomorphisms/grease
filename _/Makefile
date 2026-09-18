@@ -16,6 +16,9 @@ build/exec/ish-backend: $(IDRIC_SOURCES) ish.ipkg libish_runtime.so
 build/exec/filesystem-acceptance: $(IDRIC_SOURCES) filesystem-acceptance.ipkg libish_runtime.so
 	CHEZ=$(CHEZ) $(IDRIC) --build filesystem-acceptance.ipkg
 
+build/exec/allocation-probe: $(IDRIC_SOURCES) allocation-probe.ipkg libish_runtime.so
+	CHEZ=$(CHEZ) $(IDRIC) --build allocation-probe.ipkg
+
 libish_runtime.so: runtime/execute.c runtime/filesystem.c
 	$(CC) -std=c11 -Wall -Wextra -Werror -fPIC -shared -o $@ $^
 

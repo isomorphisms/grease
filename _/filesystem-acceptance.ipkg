@@ -1,0 +1,11 @@
+package ish-filesystem-acceptance
+
+sourcedir = "src"
+
+modules = Ish.System.Error, Ish.Filesystem.Meaning, Ish.Filesystem.Request,
+          Ish.Filesystem.Execution, Ish.Filesystem.Acceptance
+
+main = Ish.Filesystem.Acceptance
+executable = filesystem-acceptance
+
+opts = "--codegen chez"

@@ -42,3 +42,5 @@ Current human corrections and the current `ish` design outrank stale generated c
 Use the exact Idriç revision pinned by `_/idric.lock` for acceptance. Do not silently substitute RefC, an existing shell, an unpinned compiler, or a different launcher to make a check pass.
 
 A successful compile is not executable acceptance. Refusal tests and process/status semantics remain part of the contract; repair the implementation rather than weakening them.
+
+For Android, a successful cloud cross-build, ELF check, archive, or installation does not establish runtime acceptance. Physical acceptance must run `_/android/accept-package.sh` against the exact packaged artifact on the matching device target; keep physical-device evidence pending until that semantic gate passes.

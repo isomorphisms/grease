@@ -1,3 +1,3 @@
 repository = "https://github.com/isomorphisms/Idric.git"
-branch = "style/idric-number-text-surface"
-revision = "f28d7e26b89d3645b78fb1c7e6d7caaeb81ae4ba"
+branch = "fix/chez-libc-fallback"
+revision = "0a67392e7f615508e464793b2d18e9784f836696"

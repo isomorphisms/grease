@@ -25,7 +25,7 @@ created_permissions =
 fail : Text → IO a
 fail text = do
   _ ← fPutStrLn stderr $ "filesystem acceptance: " ++ text
-  exitWith $ cast 1
+  exitWith $ cast $ the Int 1
 
 require_success :
   Text → Either Operating_system_error () → IO ()

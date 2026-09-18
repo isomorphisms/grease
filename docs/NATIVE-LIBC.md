@@ -38,6 +38,7 @@ The built-in `native` object exposes these operating-system actions:
 - `mprotect`
 - `msync`
 - `openat`
+- `fallocate`
 - `linkat`
 - `symlinkat`
 - `unlinkat`
@@ -99,7 +100,15 @@ or `shared` is required. Synchronization names are `sync`, `async`, and
 
 `openat` accepts `read-only`, `write-only`, `read-write`, `create`, `exclusive`,
 `truncate`, `append`, `directory`, `no-follow`, and `close-on-exec`, with exactly
-one access mode. `linkat` has a `followSymlink` boolean and `unlinkat` has a
+one access mode.
+
+`fallocate` currently accepts exactly one stable flag name: `keep-size`. The
+default is also `['keep-size']`. This deliberately exposes the preallocation
+operation needed by append-heavy files without also exposing mode 0, hole
+punching, or the rest of Linux's fallocate modes. The call uses the existing
+opaque `FileDescriptor` and takes offset and length as Grease `Int` values.
+
+`linkat` has a `followSymlink` boolean and `unlinkat` has a
 `removeDirectory` boolean.
 
 ## Implementation boundary
@@ -108,12 +117,21 @@ The native implementation calls libc directly:
 
 ```text
 mmap      munmap      mprotect      msync
-openat    close       linkat        symlinkat       unlinkat
+openat    fallocate   close         linkat        symlinkat       unlinkat
 ```
 
 On Android these resolve through Bionic. The current phone build targets Android
-API 28, which is above the API boundary needed by the selected `*at` and mapping
-interfaces. No ARM syscall numbers are part of the Grease API or implementation.
+API 28. Bionic exposes `fallocate` from API level 21, so this stays inside the
+same libc/Bionic boundary as the existing native actions. No ARM syscall numbers
+are part of the Grease API or implementation.
+
+On Linux FAT, `FALLOC_FL_KEEP_SIZE` is the kernel mode that allocates clusters
+past the logical end without increasing the visible file size. The generic
+Grease binding does not claim that a particular Android storage path reaches
+that FAT operation: a hosted-Linux receipt proves the public Grease call and
+keep-size behavior on the runner filesystem, and the ARMv7 job proves the
+Bionic-targeted build. Physical SD-card FAT execution is a separate acceptance
+boundary.
 
 The Python reference execution path is not claimed as an implementation of
 these actions. `pyext/libc.pyi` describes the translated boundary, while the
@@ -142,7 +160,13 @@ persisted the change.
 
 The focused C++ tests additionally cover anonymous mappings, protection changes,
 out-of-bounds access, deliberate error cases, file-backed mappings, hard links,
-symbolic links, relative `openat`, and `unlinkat`.
+symbolic links, relative `openat`, `fallocate(..., FALLOC_FL_KEEP_SIZE, ...)`,
+and `unlinkat`. The fallocate case verifies that allocated blocks increase while
+`st_size` remains unchanged.
+
+[`../examples/fallocate-keep-size.ysh`](../examples/fallocate-keep-size.ysh)
+exercises the same operation through the public Grease/YSH object. Its receipt
+checks file size and allocated blocks outside the Grease process.
 
 ## Extending the vocabulary
 

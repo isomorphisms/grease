@@ -85,8 +85,8 @@ choice_present wanted (candidate :: rest) =
 
 selected_choice :
   Open_choice → Int → List Open_choice → Int
-selected_choice choice representation choices =
-  if choice_present choice choices then representation else 0
+selected_choice selected representation choices =
+  if choice_present selected choices then representation else 0
 
 open_choices_representation : List Open_choice → Int
 open_choices_representation choices =

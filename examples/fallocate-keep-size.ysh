@@ -1,0 +1,31 @@
+#!/usr/bin/env ysh
+
+# Exercise Linux fallocate with FALLOC_FL_KEEP_SIZE through Grease's typed
+# native object. The surrounding receipt verifies st_size and allocated blocks
+# outside Grease so the public action is not accepted merely for returning ok.
+
+if (len(ARGV) !== 1) {
+  echo 'usage: fallocate-keep-size.ysh FILE'
+  exit 2
+}
+
+var opened = native.openat(native.cwd, ARGV[0], flags=['read-write'])
+if (not opened.ok) {
+  echo 'openat failed'
+  exit 3
+}
+var file = opened.value
+
+var reserved = native.fallocate(file, 0, 1048576, flags=['keep-size'])
+if (not reserved.ok) {
+  echo 'fallocate keep-size failed'
+  exit 4
+}
+
+var closed = native.close(file)
+if (not closed.ok) {
+  echo 'close failed'
+  exit 5
+}
+
+echo 'keep-size fallocate proof passed'

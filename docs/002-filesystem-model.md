@@ -3,8 +3,8 @@
 > **Design sketch.** This note records the first filesystem model underneath the
 > shell-argument layer. It is deliberately smaller than POSIX and does not claim
 > to model storage allocation, every `openat` flag, mounts, namespaces, or every
-> kind of filesystem object. It also does not claim that ish currently executes
-> these filesystem requests.
+> kind of filesystem object. Ish now executes this request slice through its own
+> Unix adapter for `openat`, `close`, `linkat`, `symlinkat`, and `unlinkat`.
 
 ## Three different meanings of location
 
@@ -71,8 +71,8 @@ Relative_location Working_directory path_text
 Relative_location (At_directory directory) path_text
 ```
 
-A future ish Unix adapter can lower `Working_directory` to `AT_FDCWD` and an
-opened `Directory` to its underlying file descriptor. An absolute location does
+The ish Unix adapter lowers `Working_directory` to `AT_FDCWD` and an opened
+`Directory` to its underlying file descriptor. An absolute location does
 not carry a meaningless directory argument merely because the C function
 signature has one.
 
@@ -96,8 +96,8 @@ The common open arguments separate four questions:
   of a final symbolic link, nonblocking, or synchronous writes.
 
 Creation reuses Idriç's existing `Permissions` record: user, group, and others
-each carry named read/write/execute modes. A future ish Unix adapter may lower
-that value to `mode_t`, and the process umask may still restrict the effective
+each carry named read/write/execute modes. The ish Unix adapter lowers that
+value to `mode_t`, and the process umask may still restrict the effective
 mode. Neither fact requires the shell layer to expose an unexplained integer.
 
 `Open_choice` is deliberately a collection of semantic names rather than a
@@ -133,8 +133,8 @@ the new symbolic link will be created. The target remains text because dangling
 symbolic links are valid.
 
 Removal distinguishes ordinary nondirectory-name removal from directory
-removal. A future ish Unix adapter can lower the latter to `AT_REMOVEDIR`; the
-semantic layer does not expose that integer flag.
+removal. The ish Unix adapter lowers the latter to `AT_REMOVEDIR`; the semantic layer
+does not expose that integer flag.
 
 ## Errors
 
@@ -203,7 +203,9 @@ Oils native boundary, including Bionic work. None of that code is the ish
 runtime, none of those runs accept this ish model, and this PR does not import
 that implementation.
 
-A later ish implementation can use the same semantic distinctions at its own
-system boundary. Until such an implementation and its own acceptance exist,
-this PR claims only the typed ish meanings plus the existing ish acceptance
-slice that happens to compile them.
+The current ish implementation now uses the same distinctions at its own
+system boundary. Its acceptance opens a verified directory, creates a
+directory-relative file with named permissions, creates hard and symbolic
+links, rejects a final symbolic link when requested, removes names and a
+directory, and closes the opened handles. The Grease/Oils implementation
+remains separate evidence rather than an imported runtime.

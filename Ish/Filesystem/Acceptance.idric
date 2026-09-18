@@ -1,0 +1,143 @@
+module Ish.Filesystem.Acceptance
+
+import System
+import System.File
+
+import Ish.Filesystem.Execution
+import Ish.Filesystem.Meaning
+import Ish.Filesystem.Request
+import Ish.System.Error
+
+fixture_path : Text
+fixture_path = "test/tmp/filesystem-idric"
+
+fixture_location : Filesystem_location
+fixture_location =
+  Relative_location Working_directory fixture_path
+
+created_permissions : Permissions
+created_permissions =
+  MkPermissions
+    [FileMode.Read, FileMode.Write]
+    [FileMode.Read]
+    []
+
+fail : Text → IO a
+fail text = do
+  _ ← fPutStrLn stderr $ "filesystem acceptance: " ++ text
+  exitWith $ cast $ the Int 1
+
+require_success :
+  Text → Either Operating_system_error () → IO ()
+require_success _ (Right ()) = pure ()
+require_success label (Left error) =
+  fail $ label ++ ": " ++ error_text error
+
+require_value :
+  Text → Either Operating_system_error value → IO value
+require_value _ (Right value) = pure value
+require_value label (Left error) =
+  fail $ label ++ ": " ++ error_text error
+
+main : IO ()
+main = do
+  directory_result ← execute_filesystem_request $
+    Open_directory $
+      Open_at
+        fixture_location
+        Read_only
+        Existing_only
+        [Close_on_exec]
+  directory ← require_value "open directory" directory_result
+
+  created_result ← execute_filesystem_request $
+    Open_object $
+      Open_at
+        (Relative_location (At_directory directory) "created")
+        Write_only
+        (Create_new created_permissions)
+        [Close_on_exec]
+  created ← require_value "create file" created_result
+
+  close_created_result ← close_open_handle created
+  require_success "close created file" close_created_result
+
+  hard_link_result ← execute_filesystem_request $
+    Make_hard_link $
+      Hard_link
+        (Relative_location (At_directory directory) "created")
+        Link_named_object
+        (Relative_location (At_directory directory) "hard-link")
+  require_success "make hard link" hard_link_result
+
+  symbolic_link_result ← execute_filesystem_request $
+    Make_symbolic_link $
+      Symbolic_link
+        "created"
+        (Relative_location (At_directory directory) "symbolic-link")
+  require_success "make symbolic link" symbolic_link_result
+
+  followed_hard_link_result ← execute_filesystem_request $
+    Make_hard_link $
+      Hard_link
+        (Relative_location (At_directory directory) "symbolic-link")
+        Follow_source_symbolic_link
+        (Relative_location (At_directory directory) "followed-hard-link")
+  require_success "make hard link by following symbolic-link source" followed_hard_link_result
+
+  followed_result ← execute_filesystem_request $
+    Open_object $
+      Open_at
+        (Relative_location (At_directory directory) "followed-hard-link")
+        Read_only
+        Existing_only
+        [Reject_final_symbolic_link]
+  followed ← require_value "open followed hard link" followed_result
+  close_followed_result ← close_open_handle followed
+  require_success "close followed hard link" close_followed_result
+
+  nofollow_result ← execute_filesystem_request $
+    Open_object $
+      Open_at
+        (Relative_location (At_directory directory) "symbolic-link")
+        Read_only
+        Existing_only
+        [Reject_final_symbolic_link]
+  case nofollow_result of
+    Left _ => pure ()
+    Right unexpected => do
+      _ ← close_open_handle unexpected
+      fail "Reject_final_symbolic_link unexpectedly opened a symbolic link"
+
+  remove_followed_hard_link_result ← execute_filesystem_request $
+    Remove_name $
+      Remove_at
+        (Relative_location (At_directory directory) "followed-hard-link")
+        Remove_nondirectory_name
+  require_success "remove followed hard link" remove_followed_hard_link_result
+
+  remove_hard_link_result ← execute_filesystem_request $
+    Remove_name $
+      Remove_at
+        (Relative_location (At_directory directory) "hard-link")
+        Remove_nondirectory_name
+  require_success "remove hard link" remove_hard_link_result
+
+  remove_symbolic_link_result ← execute_filesystem_request $
+    Remove_name $
+      Remove_at
+        (Relative_location (At_directory directory) "symbolic-link")
+        Remove_nondirectory_name
+  require_success "remove symbolic link" remove_symbolic_link_result
+
+  remove_directory_result ← execute_filesystem_request $
+    Remove_name $
+      Remove_at
+        (Relative_location (At_directory directory) "empty-directory")
+        Remove_directory
+  require_success "remove directory" remove_directory_result
+
+  close_directory_result ← close_directory directory
+  require_success "close directory" close_directory_result
+
+  putStrLn "typed filesystem requests reached libc: PASS"

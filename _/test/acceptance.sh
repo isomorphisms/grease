@@ -154,4 +154,28 @@ test ! -s "$actual"
 grep -F 'incomplete incantation: expected a name at [0,0)' \
   "$diagnostic" >/dev/null
 
+filesystem_fixture=$temporary/filesystem-idric
+filesystem_actual=$temporary/filesystem-actual
+filesystem_diagnostic=$temporary/filesystem-diagnostic
+
+rm -rf "$filesystem_fixture"
+mkdir -p "$filesystem_fixture/empty-directory"
+
+(
+    cd "$repo_root"
+    umask 000
+    LD_LIBRARY_PATH="$repo_root${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+      "$repo_root/build/exec/filesystem-acceptance"
+) >"$filesystem_actual" 2>"$filesystem_diagnostic"
+
+test ! -s "$filesystem_diagnostic"
+grep -Fx 'typed filesystem requests reached libc: PASS' \
+  "$filesystem_actual" >/dev/null
+test -f "$filesystem_fixture/created"
+test "$(stat -c '%a' "$filesystem_fixture/created")" = 640
+test ! -e "$filesystem_fixture/hard-link"
+test ! -L "$filesystem_fixture/symbolic-link"
+test ! -d "$filesystem_fixture/empty-directory"
+
+printf '%s\n' 'typed filesystem requests reached libc: PASS'
 printf '%s\n' 'one incantation became one process: PASS'

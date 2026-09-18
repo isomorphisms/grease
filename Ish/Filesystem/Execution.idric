@@ -1,0 +1,252 @@
+module Ish.Filesystem.Execution
+
+import System.Errno
+
+import public Ish.Filesystem.Meaning
+import public Ish.Filesystem.Request
+import Ish.System.Error
+
+record Native_location where
+  constructor Location_representation
+  location_kind : Int
+  location_descriptor : Int
+  location_path : Text
+
+location_representation : Filesystem_location → Native_location
+location_representation (Absolute_location path) =
+  Location_representation 0 0 path
+location_representation (Relative_location Working_directory path) =
+  Location_representation 1 0 path
+location_representation
+  (Relative_location
+    (At_directory
+      (Directory_verified
+        (Opened_object (Descriptor descriptor))))
+    path) =
+  Location_representation 2 descriptor path
+
+access_representation : File_access → Int
+access_representation Read_only = 0
+access_representation Write_only = 1
+access_representation Read_and_write = 2
+
+presence_representation : File_presence → Int
+presence_representation Existing_only = 0
+presence_representation (Create_if_missing _) = 1
+presence_representation (Create_new _) = 2
+
+file_mode_representation : FileMode → Int
+file_mode_representation FileMode.Read = 0
+file_mode_representation FileMode.Write = 1
+file_mode_representation FileMode.Execute = 2
+
+mode_present : FileMode → List FileMode → Bool
+mode_present _ [] = False
+mode_present wanted (candidate :: rest) =
+  if file_mode_representation wanted == file_mode_representation candidate
+    then True
+    else mode_present wanted rest
+
+permission_part :
+  List FileMode → Int → Int → Int → Int
+permission_part modes read write execute =
+  (if mode_present FileMode.Read modes then read else 0) +
+  (if mode_present FileMode.Write modes then write else 0) +
+  (if mode_present FileMode.Execute modes then execute else 0)
+
+permissions_representation : Permissions → Int
+permissions_representation (MkPermissions user group others) =
+  permission_part user 256 128 64 +
+  permission_part group 32 16 8 +
+  permission_part others 4 2 1
+
+creation_permissions_representation : File_presence → Int
+creation_permissions_representation Existing_only = 0
+creation_permissions_representation (Create_if_missing permissions) =
+  permissions_representation permissions
+creation_permissions_representation (Create_new permissions) =
+  permissions_representation permissions
+
+open_choice_representation : Open_choice → Int
+open_choice_representation Append_writes = 1
+open_choice_representation Truncate_existing = 2
+open_choice_representation Close_on_exec = 4
+open_choice_representation Reject_final_symbolic_link = 8
+open_choice_representation Nonblocking = 16
+open_choice_representation Synchronous_writes = 32
+open_choice_representation Synchronous_data_writes = 64
+
+choice_present : Open_choice → List Open_choice → Bool
+choice_present _ [] = False
+choice_present wanted (candidate :: rest) =
+  if open_choice_representation wanted == open_choice_representation candidate
+    then True
+    else choice_present wanted rest
+
+selected_choice :
+  Open_choice → Int → List Open_choice → Int
+selected_choice selected representation choices =
+  if choice_present selected choices then representation else 0
+
+open_choices_representation : List Open_choice → Int
+open_choices_representation choices =
+  selected_choice Append_writes 1 choices +
+  selected_choice Truncate_existing 2 choices +
+  selected_choice Close_on_exec 4 choices +
+  selected_choice Reject_final_symbolic_link 8 choices +
+  selected_choice Nonblocking 16 choices +
+  selected_choice Synchronous_writes 32 choices +
+  selected_choice Synchronous_data_writes 64 choices
+
+hard_link_source_representation : Hard_link_source → Int
+hard_link_source_representation Link_named_object = 0
+hard_link_source_representation Follow_source_symbolic_link = 1
+
+removal_kind_representation : Removal_kind → Int
+removal_kind_representation Remove_nondirectory_name = 0
+removal_kind_representation Remove_directory = 1
+
+boolean_representation : Bool → Int
+boolean_representation False = 0
+boolean_representation True = 1
+
+%foreign "C:ish_openat, libish_runtime"
+openat_primitive :
+  Int → Int → Text → Int → Int → Int → Int → Int → PrimIO Int
+
+%foreign "C:ish_close, libish_runtime"
+close_primitive : Int → PrimIO Int
+
+%foreign "C:ish_linkat, libish_runtime"
+linkat_primitive :
+  Int → Int → Text → Int → Int → Text → Int → PrimIO Int
+
+%foreign "C:ish_symlinkat, libish_runtime"
+symlinkat_primitive :
+  Text → Int → Int → Text → PrimIO Int
+
+%foreign "C:ish_unlinkat, libish_runtime"
+unlinkat_primitive :
+  Int → Int → Text → Int → PrimIO Int
+
+operating_system_error : Int → Operating_system_error
+operating_system_error number =
+  Operating_system_error_reported
+    Nothing
+    number
+    Nothing
+    (strerror number)
+
+unit_result : Int → Either Operating_system_error ()
+unit_result 0 = Right ()
+unit_result error = Left $ operating_system_error error
+
+open_handle :
+  Bool → Open_request → IO (Either Operating_system_error Open_handle)
+open_handle require_directory request = do
+  let Location_representation kind descriptor path =
+        location_representation $ open_location request
+      access = access_representation $ open_access request
+      presence = presence_representation $ open_presence request
+      permissions =
+        creation_permissions_representation $ open_presence request
+      choices = open_choices_representation $ open_choices request
+  result ← primIO $
+    openat_primitive
+      kind
+      descriptor
+      path
+      access
+      presence
+      permissions
+      choices
+      (boolean_representation require_directory)
+  if result < 0
+    then pure $ Left $ operating_system_error $ 0 - result
+    else pure $ Right $ Opened_object $ Descriptor result
+
+export
+open_object :
+  Open_request → IO (Either Operating_system_error Open_handle)
+open_object = open_handle False
+
+export
+open_directory :
+  Open_request → IO (Either Operating_system_error Directory)
+open_directory request = do
+  result ← open_handle True request
+  case result of
+    Left error => pure $ Left error
+    Right handle => pure $ Right $ Directory_verified handle
+
+export
+close_open_handle :
+  Open_handle → IO (Either Operating_system_error ())
+close_open_handle (Opened_object (Descriptor descriptor)) = do
+  error ← primIO $ close_primitive descriptor
+  pure $ unit_result error
+
+export
+close_directory :
+  Directory → IO (Either Operating_system_error ())
+close_directory (Directory_verified handle) =
+  close_open_handle handle
+
+export
+make_hard_link :
+  Hard_link_request → IO (Either Operating_system_error ())
+make_hard_link request = do
+  let Location_representation source_kind source_descriptor source_path =
+        location_representation $ hard_link_source request
+      Location_representation destination_kind destination_descriptor destination_path =
+        location_representation $ hard_link_destination request
+      source_resolution =
+        hard_link_source_representation $ hard_link_source_resolution request
+  error ← primIO $
+    linkat_primitive
+      source_kind
+      source_descriptor
+      source_path
+      destination_kind
+      destination_descriptor
+      destination_path
+      source_resolution
+  pure $ unit_result error
+
+export
+make_symbolic_link :
+  Symbolic_link_request → IO (Either Operating_system_error ())
+make_symbolic_link request = do
+  let Location_representation kind descriptor path =
+        location_representation $ symbolic_link_location request
+  error ← primIO $
+    symlinkat_primitive
+      (symbolic_link_target request)
+      kind
+      descriptor
+      path
+  pure $ unit_result error
+
+export
+remove_name :
+  Removal_request → IO (Either Operating_system_error ())
+remove_name request = do
+  let Location_representation kind descriptor path =
+        location_representation $ removal_location request
+      removal = removal_kind_representation $ removal_kind request
+  error ← primIO $ unlinkat_primitive kind descriptor path removal
+  pure $ unit_result error
+
+export
+execute_filesystem_request :
+  (request : Filesystem_request) → IO (request_result request)
+execute_filesystem_request (Open_object request) =
+  open_object request
+execute_filesystem_request (Open_directory request) =
+  open_directory request
+execute_filesystem_request (Make_hard_link request) =
+  make_hard_link request
+execute_filesystem_request (Make_symbolic_link request) =
+  make_symbolic_link request
+execute_filesystem_request (Remove_name request) =
+  remove_name request

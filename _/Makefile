@@ -13,8 +13,11 @@ build/exec/ish: runtime/launch.c build/exec/ish-backend
 build/exec/ish-backend: $(IDRIC_SOURCES) ish.ipkg libish_runtime.so
 	CHEZ=$(CHEZ) $(IDRIC) --build ish.ipkg
 
-libish_runtime.so: runtime/execute.c
-	$(CC) -std=c11 -Wall -Wextra -Werror -fPIC -shared -o $@ $<
+build/exec/filesystem-acceptance: $(IDRIC_SOURCES) filesystem-acceptance.ipkg libish_runtime.so
+	CHEZ=$(CHEZ) $(IDRIC) --build filesystem-acceptance.ipkg
+
+libish_runtime.so: runtime/execute.c runtime/filesystem.c
+	$(CC) -std=c11 -Wall -Wextra -Werror -fPIC -shared -o $@ $^
 
 test/probe: test/probe.c
 	$(CC) -std=c11 -Wall -Wextra -Werror -o $@ $<
@@ -22,7 +25,7 @@ test/probe: test/probe.c
 check: libish_runtime.so
 	$(IDRIC) --source-dir src --check src/Ish.idric
 
-test: build/exec/ish test/probe
+test: build/exec/ish build/exec/filesystem-acceptance test/probe
 	sh test/acceptance.sh
 
 acceptance: clean

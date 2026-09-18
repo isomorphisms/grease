@@ -26,6 +26,28 @@ current Grease/Oils/YSH implementation that is being claimed. If the required
 runtime is unavailable, report that boundary as unverified rather than
 substituting a familiar shell or interpreter.
 
+## Native, raw, and physical terminology
+
+Use `native` for the target platform's own lowest useful semantic/system
+interface for the facility being used. On Linux that can be libc or the kernel
+system-call boundary; on Android it can be DEX/ART, JNI/NDK/Bionic,
+Binder/platform services, or a direct device/event interface such as touch or
+swipe. The useful native boundary depends on the task.
+
+Do not use `native` as a synonym for C++ or MyCPP. C++ may implement a bridge
+to a native platform interface, but it is an implementation language/layer, not
+the meaning of native.
+
+Use `raw` when deliberately dropping below the ordinary native interface into
+assembly, machine instructions, registers, instruction encodings, low-level
+bus/protocol bytes or signaling, and similar machine-facing representation.
+Use `physical`, `circuit`, or `electrical` for actual gates, transistors,
+voltages, current, capacitance, traces, and other physical electronics.
+
+Do not force shell/application semantics to descend into raw or physical detail
+when the platform already exposes the useful operation directly. Keep those
+lower layers inspectable when a task specifically requires them.
+
 ## Preserve exact source provenance
 
 Treat the `source/` submodule revision as material provenance. A successful run

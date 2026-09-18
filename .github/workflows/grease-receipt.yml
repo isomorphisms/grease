@@ -73,6 +73,23 @@ jobs:
           ninja _bin/cxx-dbg/cpp/libc_test
           _bin/cxx-dbg/cpp/libc_test -t grease_native_
 
+      - name: Exercise keep-size fallocate from Grease
+        working-directory: source-worktree
+        shell: bash
+        run: |
+          test -x _bin/cxx-asan/ysh
+          reserve_file=$(mktemp)
+          trap 'rm -f "$reserve_file"' EXIT
+          before_size=$(stat -c '%s' "$reserve_file")
+          before_blocks=$(stat -c '%b' "$reserve_file")
+          test "$before_size" = 0
+          _bin/cxx-asan/ysh \
+            "$GITHUB_WORKSPACE/examples/fallocate-keep-size.ysh" "$reserve_file"
+          after_size=$(stat -c '%s' "$reserve_file")
+          after_blocks=$(stat -c '%b' "$reserve_file")
+          test "$after_size" = "$before_size"
+          test "$after_blocks" -gt "$before_blocks"
+
       - name: Exercise mapped IB index from Grease
         working-directory: source-worktree
         shell: bash

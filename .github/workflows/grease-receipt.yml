@@ -16,7 +16,7 @@ jobs:
       REPO_ROOT: ${{ github.workspace }}/source-worktree
     steps:
       - name: Check out exact Grease head and pinned Oils source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
@@ -37,7 +37,7 @@ jobs:
           echo "Ubuntu: $PRETTY_NAME"
 
       - name: Check out pinned Oils source as standalone worktree
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: isomorphisms/oils
           ref: ${{ steps.source_pin.outputs.revision }}

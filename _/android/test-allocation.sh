@@ -26,6 +26,7 @@ rm -f "$probe_file"
 
 printf 'architecture\t%s\n' "$(uname -m)"
 printf 'test_directory\t%s\n' "$test_directory"
+printf 'filesystem_type\t%s\n' "$(stat -f -c '%T' "$test_directory")"
 printf 'probe_program\t%s\n' "$probe_program"
 
 set +e

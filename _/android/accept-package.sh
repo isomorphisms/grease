@@ -38,9 +38,19 @@ test -s "$receipt" || fail 'missing build receipt'
 test -s "$package/receipts/files.sha256" || fail 'missing file digest receipt'
 
 actual_uname=$(uname -m)
-[ "$actual_uname" = "$expected_uname" ] ||
-  fail "device architecture is $actual_uname, expected $expected_uname"
-pass "device architecture $actual_uname"
+actual_abi=
+if command -v getprop >/dev/null 2>&1; then
+  actual_abi=$(getprop ro.product.cpu.abi 2>/dev/null || true)
+fi
+if [ -n "$actual_abi" ]; then
+  [ "$actual_abi" = "$expected_abi" ] ||
+    fail "device ABI is $actual_abi, expected $expected_abi"
+  pass "device ABI $actual_abi (kernel $actual_uname)"
+else
+  [ "$actual_uname" = "$expected_uname" ] ||
+    fail "device architecture is $actual_uname, expected $expected_uname"
+  pass "device architecture $actual_uname"
+fi
 
 grep -F "target	$target" "$receipt" >/dev/null ||
   fail "package target is not $target"

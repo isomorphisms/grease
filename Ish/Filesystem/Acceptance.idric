@@ -77,6 +77,25 @@ main = do
         (Relative_location (At_directory directory) "symbolic-link")
   require_success "make symbolic link" symbolic_link_result
 
+  followed_hard_link_result ← execute_filesystem_request $
+    Make_hard_link $
+      Hard_link
+        (Relative_location (At_directory directory) "symbolic-link")
+        Follow_source_symbolic_link
+        (Relative_location (At_directory directory) "followed-hard-link")
+  require_success "make hard link by following symbolic-link source" followed_hard_link_result
+
+  followed_result ← execute_filesystem_request $
+    Open_object $
+      Open_at
+        (Relative_location (At_directory directory) "followed-hard-link")
+        Read_only
+        Existing_only
+        [Reject_final_symbolic_link]
+  followed ← require_value "open followed hard link" followed_result
+  close_followed_result ← close_open_handle followed
+  require_success "close followed hard link" close_followed_result
+
   nofollow_result ← execute_filesystem_request $
     Open_object $
       Open_at
@@ -89,6 +108,13 @@ main = do
     Right unexpected => do
       _ ← close_open_handle unexpected
       fail "Reject_final_symbolic_link unexpectedly opened a symbolic link"
+
+  remove_followed_hard_link_result ← execute_filesystem_request $
+    Remove_name $
+      Remove_at
+        (Relative_location (At_directory directory) "followed-hard-link")
+        Remove_nondirectory_name
+  require_success "remove followed hard link" remove_followed_hard_link_result
 
   remove_hard_link_result ← execute_filesystem_request $
     Remove_name $

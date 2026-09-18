@@ -59,3 +59,29 @@ jobs:
           soil/github-actions.sh run-job cpp-spec podman
           test "$(cat _tmp/soil/commit-hash.txt)" = "${{ steps.source_pin.outputs.revision }}"
           soil/host-shim.sh did-all-succeed cpp-spec
+
+      - name: Install host dependency for focused native test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreadline-dev
+
+      - name: Build and run focused libc native tests
+        working-directory: source-worktree
+        shell: bash
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" _build _bin
+          ninja _bin/cxx-dbg/cpp/libc_test
+          _bin/cxx-dbg/cpp/libc_test -t grease_native_
+
+      - name: Exercise mapped IB index from Grease
+        working-directory: source-worktree
+        shell: bash
+        run: |
+          test -x _bin/cxx-asan/ysh
+          index_file=$(mktemp)
+          trap 'rm -f "$index_file"' EXIT
+          truncate -s 4096 "$index_file"
+          printf fragment | dd of="$index_file" conv=notrunc status=none
+          _bin/cxx-asan/ysh \
+            "$GITHUB_WORKSPACE/examples/ib-mapped-index.ysh" "$index_file"
+          test "$(head -c 8 "$index_file")" = pensieve

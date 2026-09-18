@@ -50,8 +50,8 @@ data File_access
   | Read_and_write
 
 -- Reuse Idriç's existing semantic Permissions record: user, group, and others
--- each carry named Read/Write/Execute modes. A future ish Unix adapter may lower
--- that value to mode_t, and the process umask can restrict the effective mode.
+-- each carry named Read/Write/Execute modes. The ish Unix adapter lowers that
+-- value to mode_t, and the process umask can restrict the effective mode.
 -- Presence and creation are separated so permissions cannot be supplied to an
 -- ordinary existing-only open where they have no meaning.
 public export
@@ -60,8 +60,8 @@ data File_presence
   | Create_if_missing Permissions
   | Create_new Permissions
 
--- These are named semantic choices, not exported O_* integer bits. A future ish
--- Unix adapter may validate and lower combinations at its own boundary.
+-- These are named semantic choices, not exported O_* integer bits. The ish Unix
+-- adapter validates and lowers combinations at its own boundary.
 -- Reject_final_symbolic_link means that a final symbolic link makes the open
 -- fail; it does not mean "open the symbolic-link object".
 public export

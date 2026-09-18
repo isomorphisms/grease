@@ -22,6 +22,9 @@ created_permissions =
     [FileMode.Read]
     []
 
+reservation_length : Number
+reservation_length = 1048576
+
 fail : Text → IO a
 fail text = do
   _ ← fPutStrLn stderr $ "filesystem acceptance: " ++ text
@@ -58,6 +61,15 @@ main = do
         (Create_new created_permissions)
         [Close_on_exec]
   created ← require_value "create file" created_result
+
+  allocation_result ← execute_filesystem_request $
+    Allocate_file_storage $
+      Allocate_storage
+        created
+        0
+        reservation_length
+        Keep_visible_size
+  require_success "allocate backing storage without visible growth" allocation_result
 
   close_created_result ← close_open_handle created
   require_success "close created file" close_created_result
@@ -140,4 +152,5 @@ main = do
   close_directory_result ← close_directory directory
   require_success "close directory" close_directory_result
 
+  putStrLn "keep-size allocation reached platform interface: PASS"
   putStrLn "typed filesystem requests reached libc: PASS"

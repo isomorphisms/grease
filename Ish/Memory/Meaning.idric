@@ -1,0 +1,53 @@
+module Ish.Memory.Meaning
+
+import public Ish.Filesystem.Meaning
+
+-- A Byte is one uninterpreted octet. Bits8 is only the compiler storage
+-- representation at this lower boundary.
+public export
+Byte : Type
+Byte = Bits8
+
+-- This token names one live entry in the Unix adapter's mapping registry. It is
+-- deliberately not a process address and cannot be used as a pointer.
+public export
+record Mapping_reference where
+  constructor Mapping_token
+  mapping_token_representation : Int
+
+-- A Mapping is a live virtual-memory mapping plus its logical extent. The Unix
+-- adapter owns the actual address and rejects a stale token after release.
+public export
+record Mapping where
+  constructor Live_mapping
+  mapping_reference : Mapping_reference
+  mapping_length : Number
+
+-- These are semantic access choices, not exported PROT_* integer bits.
+public export
+data Mapping_permission
+  = Read_mapping
+  | Write_mapping
+  | Execute_mapping
+
+-- Sharing says whether writes are private to this mapping or shared with the
+-- backing object. It is not a MAP_* bit mask.
+public export
+data Mapping_sharing
+  = Private_mapping
+  | Shared_mapping
+
+-- Anonymous memory has no filesystem identity. A file-backed mapping uses an
+-- already-opened object and a byte offset into that object.
+public export
+data Mapping_source
+  = Anonymous_memory
+  | File_backed Open_handle Number
+
+public export
+record Mapping_request where
+  constructor Map_memory
+  mapping_source : Mapping_source
+  mapping_length_requested : Number
+  mapping_permissions : List Mapping_permission
+  mapping_sharing : Mapping_sharing

@@ -5,7 +5,7 @@ sourcedir = "src"
 modules = Ish.Source.Meaning, Ish.Source.Utf_8, Ish.Source.Incantation,
           Ish.Source.Diagnostic, Ish.System.Error, Ish.Filesystem.Meaning,
           Ish.Filesystem.Request, Ish.Filesystem.Examples,
-          Ish.Filesystem.Execution,
+          Ish.Filesystem.Execution, Ish.Memory.Meaning, Ish.Memory.Execution,
           Ish.Execution.Meaning, Ish.Execution.Current_process_replacement,
           Ish.Failure, Ish.Receive_incantation, Ish.Understand_incantation,
           Ish.Cast_incantation, Ish

@@ -130,7 +130,8 @@ cp "$target_program" "$runtime/ish-backend.so"
 "$cc" -std=c11 -Wall -Wextra -Werror -fPIC -shared \
   -o "$runtime/libish_runtime.so" \
   "$repo_root/_/runtime/execute.c" \
-  "$repo_root/_/runtime/filesystem.c"
+  "$repo_root/_/runtime/filesystem.c" \
+  "$repo_root/_/runtime/memory.c"
 "$cc" -std=c11 -Wall -Wextra -Werror \
   -o "$output_dir/bin/ish" "$repo_root/_/android/launch.c"
 "$strip" --strip-unneeded "$runtime/scheme" "$runtime/libish_runtime.so" "$output_dir/bin/ish"

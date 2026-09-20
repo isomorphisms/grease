@@ -1,0 +1,138 @@
+module Ish.Memory.Execution
+
+import System.Errno
+
+import Ish.Filesystem.Meaning
+import public Ish.Memory.Meaning
+import Ish.System.Error
+
+record Native_mapping_source where
+  constructor Mapping_source_representation
+  source_kind : Int
+  source_descriptor : Int
+  source_offset_text : Text
+
+mapping_source_representation : Mapping_source → Native_mapping_source
+mapping_source_representation Anonymous_memory =
+  Mapping_source_representation 0 (-1) "0"
+mapping_source_representation
+  (File_backed (Opened_object (Descriptor descriptor)) offset) =
+  Mapping_source_representation 1 descriptor (show offset)
+
+permission_representation : Mapping_permission → Int
+permission_representation Read_mapping = 1
+permission_representation Write_mapping = 2
+permission_representation Execute_mapping = 4
+
+permission_present :
+  Mapping_permission → List Mapping_permission → Bool
+permission_present _ [] = False
+permission_present wanted (candidate :: rest) =
+  if permission_representation wanted == permission_representation candidate
+    then True
+    else permission_present wanted rest
+
+selected_permission :
+  Mapping_permission → Int → List Mapping_permission → Int
+selected_permission selected representation permissions =
+  if permission_present selected permissions then representation else 0
+
+permissions_representation : List Mapping_permission → Int
+permissions_representation permissions =
+  selected_permission Read_mapping 1 permissions +
+  selected_permission Write_mapping 2 permissions +
+  selected_permission Execute_mapping 4 permissions
+
+sharing_representation : Mapping_sharing → Int
+sharing_representation Private_mapping = 0
+sharing_representation Shared_mapping = 1
+
+%foreign "C:ish_mmap, libish_runtime"
+mmap_primitive :
+  Int → Int → Text → Text → Int → Int → PrimIO Int
+
+%foreign "C:ish_mapping_read_byte, libish_runtime"
+read_byte_primitive : Int → Text → PrimIO Int
+
+%foreign "C:ish_mapping_write_byte, libish_runtime"
+write_byte_primitive : Int → Text → Int → PrimIO Int
+
+%foreign "C:ish_msync, libish_runtime"
+msync_primitive : Int → PrimIO Int
+
+%foreign "C:ish_munmap, libish_runtime"
+munmap_primitive : Int → PrimIO Int
+
+operating_system_error : Int → Operating_system_error
+operating_system_error number =
+  Operating_system_error_reported
+    Nothing
+    number
+    Nothing
+    (strerror number)
+
+unit_result : Int → Either Operating_system_error ()
+unit_result 0 = Right ()
+unit_result error = Left $ operating_system_error error
+
+export
+map_memory :
+  Mapping_request → IO (Either Operating_system_error Mapping)
+map_memory request = do
+  let Mapping_source_representation kind descriptor offset_text =
+        mapping_source_representation $ mapping_source request
+      permissions =
+        permissions_representation $ mapping_permissions request
+      sharing =
+        sharing_representation $ mapping_sharing request
+  result ← primIO $
+    mmap_primitive
+      kind
+      descriptor
+      offset_text
+      (show $ mapping_length_requested request)
+      permissions
+      sharing
+  if result < 0
+    then pure $ Left $ operating_system_error $ 0 - result
+    else pure $
+      Right $
+        Live_mapping
+          (Mapping_token result)
+          (mapping_length_requested request)
+
+export
+read_mapping_byte :
+  Mapping → Number → IO (Either Operating_system_error Byte)
+read_mapping_byte
+  (Live_mapping (Mapping_token token) _)
+  offset = do
+    result ← primIO $ read_byte_primitive token (show offset)
+    if result < 0
+      then pure $ Left $ operating_system_error $ 0 - result
+      else pure $ Right $ cast result
+
+export
+write_mapping_byte :
+  Mapping → Number → Byte → IO (Either Operating_system_error ())
+write_mapping_byte
+  (Live_mapping (Mapping_token token) _)
+  offset
+  byte = do
+    error ← primIO $
+      write_byte_primitive token (show offset) (cast byte)
+    pure $ unit_result error
+
+export
+synchronize_mapping :
+  Mapping → IO (Either Operating_system_error ())
+synchronize_mapping (Live_mapping (Mapping_token token) _) = do
+  error ← primIO $ msync_primitive token
+  pure $ unit_result error
+
+export
+release_mapping :
+  Mapping → IO (Either Operating_system_error ())
+release_mapping (Live_mapping (Mapping_token token) _) = do
+  error ← primIO $ munmap_primitive token
+  pure $ unit_result error

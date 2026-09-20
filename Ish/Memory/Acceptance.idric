@@ -1,0 +1,135 @@
+module Ish.Memory.Acceptance
+
+import System
+import System.File
+
+import Ish.Filesystem.Execution
+import Ish.Filesystem.Meaning
+import Ish.Memory.Execution
+import Ish.Memory.Meaning
+import Ish.System.Error
+
+fixture_location : Filesystem_location
+fixture_location =
+  Relative_location Working_directory "test/tmp/memory-mapping.bin"
+
+fragment : List Byte
+fragment = [102, 114, 97, 103, 109, 101, 110, 116]
+
+pensieve : List Byte
+pensieve = [112, 101, 110, 115, 105, 101, 118, 101]
+
+fail : Text → IO a
+fail text = do
+  _ ← fPutStrLn stderr $ "memory acceptance: " ++ text
+  exitWith $ cast $ the Int 1
+
+require_success :
+  Text → Either Operating_system_error () → IO ()
+require_success _ (Right ()) = pure ()
+require_success label (Left error) =
+  fail $ label ++ ": " ++ error_text error
+
+require_value :
+  Text → Either Operating_system_error value → IO value
+require_value _ (Right value) = pure value
+require_value label (Left error) =
+  fail $ label ++ ": " ++ error_text error
+
+require_bytes : Mapping → Number → List Byte → IO ()
+require_bytes _ _ [] = pure ()
+require_bytes mapping offset (expected :: rest) = do
+  actual_result ← read_mapping_byte mapping offset
+  actual ← require_value "read mapped byte" actual_result
+  if actual == expected
+    then require_bytes mapping (S offset) rest
+    else fail "mapped bytes did not match expected contents"
+
+write_bytes : Mapping → Number → List Byte → IO ()
+write_bytes _ _ [] = pure ()
+write_bytes mapping offset (byte :: rest) = do
+  write_result ← write_mapping_byte mapping offset byte
+  require_success "write mapped byte" write_result
+  write_bytes mapping (S offset) rest
+
+main : IO ()
+main = do
+  opened_result ← open_object $
+    Open_at
+      fixture_location
+      Read_and_write
+      Existing_only
+      [Close_on_exec]
+  opened ← require_value "open mapping fixture" opened_result
+
+  file_mapping_result ← map_memory $
+    Map_memory
+      (File_backed opened 0)
+      4096
+      [Read_mapping, Write_mapping]
+      Shared_mapping
+  file_mapping ← require_value "map file" file_mapping_result
+
+  require_bytes file_mapping 0 fragment
+  write_bytes file_mapping 0 pensieve
+
+  synchronize_result ← synchronize_mapping file_mapping
+  require_success "synchronize shared mapping" synchronize_result
+
+  release_result ← release_mapping file_mapping
+  require_success "release file mapping" release_result
+
+  stale_result ← synchronize_mapping file_mapping
+  case stale_result of
+    Left _ => pure ()
+    Right () => fail "released mapping unexpectedly remained live"
+
+  close_result ← close_open_handle opened
+  require_success "close mapped file" close_result
+
+  anonymous_result ← map_memory $
+    Map_memory
+      Anonymous_memory
+      4096
+      [Read_mapping, Write_mapping]
+      Private_mapping
+  anonymous ← require_value "map anonymous memory" anonymous_result
+
+  anonymous_write_result ← write_mapping_byte anonymous 17 90
+  require_success "write anonymous mapping" anonymous_write_result
+  anonymous_read_result ← read_mapping_byte anonymous 17
+  anonymous_byte ← require_value "read anonymous mapping" anonymous_read_result
+  if anonymous_byte == 90
+    then pure ()
+    else fail "anonymous mapping did not retain written byte"
+
+  anonymous_release_result ← release_mapping anonymous
+  require_success "release anonymous mapping" anonymous_release_result
+
+  readonly_result ← map_memory $
+    Map_memory
+      Anonymous_memory
+      4096
+      [Read_mapping]
+      Private_mapping
+  readonly ← require_value "map read-only anonymous memory" readonly_result
+  readonly_write_result ← write_mapping_byte readonly 0 65
+  case readonly_write_result of
+    Left _ => pure ()
+    Right () => fail "read-only mapping unexpectedly accepted a write"
+  readonly_release_result ← release_mapping readonly
+  require_success "release read-only mapping" readonly_release_result
+
+  zero_length_result ← map_memory $
+    Map_memory
+      Anonymous_memory
+      0
+      [Read_mapping]
+      Private_mapping
+  case zero_length_result of
+    Left _ => pure ()
+    Right unexpected => do
+      _ ← release_mapping unexpected
+      fail "zero-length mapping unexpectedly succeeded"
+
+  putStrLn "typed memory mappings reached libc: PASS"

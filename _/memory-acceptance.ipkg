@@ -1,0 +1,12 @@
+package ish-memory-acceptance
+
+sourcedir = "src"
+
+modules = Ish.System.Error, Ish.Filesystem.Meaning, Ish.Filesystem.Request,
+          Ish.Filesystem.Execution, Ish.Memory.Meaning, Ish.Memory.Execution,
+          Ish.Memory.Acceptance
+
+main = Ish.Memory.Acceptance
+executable = memory-acceptance
+
+opts = "--codegen chez"

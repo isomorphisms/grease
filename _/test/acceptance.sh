@@ -177,5 +177,28 @@ test ! -e "$filesystem_fixture/hard-link"
 test ! -L "$filesystem_fixture/symbolic-link"
 test ! -d "$filesystem_fixture/empty-directory"
 
+memory_fixture=$temporary/memory-mapping.bin
+memory_actual=$temporary/memory-actual
+memory_diagnostic=$temporary/memory-diagnostic
+memory_expected=$temporary/memory-expected
+memory_persisted=$temporary/memory-persisted
+
+dd if=/dev/zero of="$memory_fixture" bs=4096 count=1 status=none
+printf '%s' 'fragment' | dd of="$memory_fixture" bs=1 conv=notrunc status=none
+
+(
+    cd "$repo_root"
+    LD_LIBRARY_PATH="$repo_root${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+      "$repo_root/build/exec/memory-acceptance"
+) >"$memory_actual" 2>"$memory_diagnostic"
+
+test ! -s "$memory_diagnostic"
+grep -Fx 'typed memory mappings reached libc: PASS' \
+  "$memory_actual" >/dev/null
+printf '%s' 'pensieve' >"$memory_expected"
+dd if="$memory_fixture" of="$memory_persisted" bs=1 count=8 status=none
+cmp "$memory_expected" "$memory_persisted"
+
+printf '%s\n' 'typed memory mappings reached libc: PASS'
 printf '%s\n' 'typed filesystem requests reached libc: PASS'
 printf '%s\n' 'one incantation became one process: PASS'

@@ -21,9 +21,11 @@ jobs:
       ANDROID_ABI: arm64-v8a
     steps:
       - name: Check out Grease and pinned Oils source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
+          persist-credentials: false
 
       - name: Verify and record exact Grease source pin
         id: source_pin
@@ -34,7 +36,7 @@ jobs:
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
 
       - name: Check out pinned source as standalone worktree
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: isomorphisms/oils
           ref: ${{ steps.source_pin.outputs.revision }}
@@ -74,7 +76,7 @@ jobs:
         shell: bash
         env:
           GREASE_SOURCE_SHA: ${{ steps.source_pin.outputs.revision }}
-          GREASE_PACKAGING_SHA: ${{ github.sha }}
+          GREASE_PACKAGING_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           bash tablet/build-aarch64-runtime.sh \
             "${{ steps.native_source.outputs.dir }}" \
@@ -97,9 +99,9 @@ jobs:
           echo "artifact SHA-256 $sha256"
 
       - name: Upload exact build evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: grease-aarch64-termux-${{ github.sha }}
+          name: grease-aarch64-termux-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             build/grease-aarch64-termux.tar.gz
             build/grease-aarch64-termux.tar.gz.sha256

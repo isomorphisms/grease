@@ -12,6 +12,8 @@ on:
       - 'Ish/**'
       - '_/android/**'
       - '_/runtime/**'
+      - '_/test/package-boundary.sh'
+      - '_/test/package-boundary-self-test.sh'
       - '_/ish.ipkg'
       - '_/idric.lock'
       - '.github/workflows/ish-android-packages.yml'
@@ -42,6 +44,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Prove package-boundary refusals
+        run: bash _/test/package-boundary-self-test.sh
 
       - name: Read exact Idriç pin
         id: idric
@@ -107,17 +112,7 @@ jobs:
           if-no-files-found: error
 
       - name: Check package boundary
-        shell: bash
-        run: |
-          test -x build/package/bin/ish
-          test ! -e build/package/bin/ysh
-          test ! -e build/package/bin/osh
-          test ! -e build/package/bin/oils-for-unix
-          test -x build/package/libexec/ish/scheme
-          test -s build/package/libexec/ish/ish-backend.so
-          grep -F $'source\tisomorphisms/grease' build/package/receipts/build.tsv
-          grep -F $'abi\t${{ matrix.abi }}' build/package/receipts/build.tsv
-          grep -F $'physical_device_execution\tPENDING' build/package/receipts/build.tsv
+        run: bash _/test/package-boundary.sh build/package '${{ matrix.abi }}'
 
       - name: Package deterministic archive
         id: package

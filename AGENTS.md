@@ -35,6 +35,12 @@ Bytes, UTF-8 mechanics, OS records, and primitive return codes belong at explici
 
 Oils/YSH/Grease source is evidence and reference material, not a compatibility contract for `ish`. Do not restore an upstream abstraction, object model, runtime convention, or terminology merely because the pinned source uses it.
 
+`ish` must not be implemented or packaged as an alias, wrapper, symlink, or
+renamed copy of Grease, YSH, OSH, or `oils-for-unix`. Its public entrypoint must
+launch the compiler-generated program built from `Ish.idric` and `Ish/`. Run
+`_/test/package-boundary-self-test.sh`; packaged artifacts must also pass
+`_/test/package-boundary.sh`.
+
 Current human corrections and the current `ish` design outrank stale generated code, old branches, upstream naming, and conventional shell implementation practice. Do not reintroduce a rejected semantic abstraction under a renamed wrapper.
 
 ## Preserve the intended execution path

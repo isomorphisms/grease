@@ -3,7 +3,7 @@ name: ish Android packages
 on:
   push:
     branches:
-      - ish-android-packages
+      - ish
   pull_request:
     branches:
       - ish

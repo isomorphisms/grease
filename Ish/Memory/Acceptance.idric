@@ -1,6 +1,7 @@
 module Ish.Memory.Acceptance
 
 import System
+import System.File
 
 import Ish.Filesystem.Execution
 import Ish.Filesystem.Meaning

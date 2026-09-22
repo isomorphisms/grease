@@ -136,3 +136,13 @@ jobs:
           grep -Fqx 'android.x_m_per_s2=1.25' "$receipt"
           grep -Fqx 'compact.encode_status=ok' "$receipt"
           grep -Fqx 'PASS Grease consumed accelerometer inspection' "$receipt"
+
+          good="$RUNNER_TEMP/accelerometer-inspection-good.tsv"
+          bad="$RUNNER_TEMP/accelerometer-inspection-missing-status.tsv"
+          "$fixture" > "$good"
+          grep -v '^compact[.]encode_status	' "$good" > "$bad"
+          if _bin/cxx-asan/ysh \
+              "$GITHUB_WORKSPACE/examples/accelerometer-inspection.ysh" < "$bad"; then
+            echo 'Grease accepted an inspection record with compact.encode_status missing' >&2
+            exit 1
+          fi

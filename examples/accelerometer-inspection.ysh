@@ -1,0 +1,54 @@
+#!/usr/bin/env ysh
+
+# Consume the complete accelerometer inspection record produced by the Android
+# utility's shared formatter. This deliberately treats the dotted field names as
+# the stable machine interface while the descriptive headings remain for people.
+
+var record = $(cat)
+
+var timestamp = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "android.timestamp_ns" { print $2 }')
+var android_x = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "android.x_m_per_s2" { print $2 }')
+var android_y = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "android.y_m_per_s2" { print $2 }')
+var android_z = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "android.z_m_per_s2" { print $2 }')
+var direction_defined = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "residual_direction.defined" { print $2 }')
+var quaternion_real = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "residual_direction.quaternion.real" { print $2 }')
+var encode_status = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "compact.encode_status" { print $2 }')
+var screen_x = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "screen.x_m_per_s2" { print $2 }')
+var screen_y = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "screen.y_m_per_s2" { print $2 }')
+var screen_z = $(printf '%s\n' "$record" |
+  awk -F '\t' '$1 == "screen.z_m_per_s2" { print $2 }')
+
+if (timestamp !== '123456789') {
+  echo "unexpected accelerometer timestamp: $timestamp"
+  exit 2
+}
+if (android_x !== '1.25' or android_y !== '-2.5' or android_z !== '9') {
+  echo "unexpected Android accelerometer reading: $android_x $android_y $android_z"
+  exit 3
+}
+if (direction_defined !== 'true' or quaternion_real !== '0') {
+  echo "compact residual direction was not exposed as a unit pure quaternion"
+  exit 4
+}
+if (encode_status !== 'ok') {
+  echo "compact accelerometer encoding was not ok: $encode_status"
+  exit 5
+}
+if (screen_x === '' or screen_y === '' or screen_z === '') {
+  echo "screen-facing seventh values were not available"
+  exit 6
+}
+
+echo "android.x_m_per_s2=$android_x"
+echo "compact.encode_status=$encode_status"
+echo "screen=$screen_x,$screen_y,$screen_z"
+echo 'PASS Grease consumed accelerometer inspection'

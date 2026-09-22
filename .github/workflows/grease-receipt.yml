@@ -102,3 +102,37 @@ jobs:
           _bin/cxx-asan/ysh \
             "$GITHUB_WORKSPACE/examples/ib-mapped-index.ysh" "$index_file"
           test "$(head -c 8 "$index_file")" = pensieve
+
+      - name: Check out exact accelerometer producer
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Ashtray-Archer/utilities-android-phone-user
+          ref: d8232c9652800bbe63f302d77eaad9aa917dbcad
+          path: accelerometer-producer
+          persist-credentials: false
+
+      - name: Pipe exact accelerometer inspection through Grease
+        working-directory: source-worktree
+        shell: bash
+        run: |
+          set -eu
+          producer="$GITHUB_WORKSPACE/accelerometer-producer"
+          fixture="$RUNNER_TEMP/accelerometer-inspection-fixture"
+          receipt="$RUNNER_TEMP/grease-accelerometer-receipt.txt"
+
+          cc -std=c17 -O2 -Wall -Wextra -Werror -Wpedantic -Wshadow \
+            -I"$producer/accelerometer/model" \
+            -I"$producer/accelerometer/command" \
+            "$producer/accelerometer/tests/inspection_fixture.c" \
+            -lm \
+            -o "$fixture"
+
+          test -x _bin/cxx-asan/ysh
+          "$fixture" |
+            _bin/cxx-asan/ysh \
+              "$GITHUB_WORKSPACE/examples/accelerometer-inspection.ysh" |
+            tee "$receipt"
+
+          grep -Fqx 'android.x_m_per_s2=1.25' "$receipt"
+          grep -Fqx 'compact.encode_status=ok' "$receipt"
+          grep -Fqx 'PASS Grease consumed accelerometer inspection' "$receipt"

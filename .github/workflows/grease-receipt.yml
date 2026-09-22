@@ -107,7 +107,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: Ashtray-Archer/utilities-android-phone-user
-          ref: d8232c9652800bbe63f302d77eaad9aa917dbcad
+          ref: c8e148889645113040f243d5d3c6801274eae3f1
           path: accelerometer-producer
           persist-credentials: false
 
